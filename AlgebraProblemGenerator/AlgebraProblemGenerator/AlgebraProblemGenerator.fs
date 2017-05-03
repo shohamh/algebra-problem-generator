@@ -63,6 +63,43 @@ module AlgebraProblemGenerator =
 
     type Problem = Term * Term * VariableDomain list
     
+    type Id = int
+
+type ChoiceU =Id * UnaryOp of UnaryOp
+
+
+type ChoiceB =Id  * BinaryOp of BinaryOp
+
+
+type ChoiceT =Id * Term of Term
+
+type OpTerm =
+|UnaryOp of UnaryOp
+|BinaryOp of BinaryOp
+|Term of Term
+
+type QUnaryOp =
+| UnaryOp of UnaryOp
+| ChoiceU of ChoiceU
+
+type QBinaryOp =
+| BinaryOp of BinaryOp
+| ChoiceB of ChoiceB
+
+type QTerm =
+| Term of Term
+| ChoiceT of ChoiceT
+
+type QProblem  =
+| QTerm of QTerm *QTerm of QTerm * VariableDomain list of VariableDomain
+
+type QConstraint = 
+| FunctionalConstraint of Id *(Id list -> OpTerm of OpTerm)
+| RelationalConstraint of Id list -> bool
+
+
+type Query =QProblem of QProblem * QConstraint list of QConstraint
+    
 
 [<EntryPoint>]
 let main argv = 
