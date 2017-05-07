@@ -32,7 +32,7 @@ let executeTerm (qterm : QTerm) =
         let newUnaryOp =
             match qUnaryOp with
             | UnaryOp u -> u
-            | ChoiceU (id, listUnaryOps) -> listUnaryOps[rand.Next(1,101)] // TODO generate random index and choose it from the list
+            | ChoiceU (id, listUnaryOps) -> listUnaryOps[rand.Next(0,listUnaryOps.Count)] // generate random index and choose it from the list
         (newUnaryOp, newTerm)
     | QBinaryTerm (tempQTerm1, qbinaryop, tempQTerm2) ->
         let newTerm1 = executeTerm tempQTerm1
@@ -40,7 +40,7 @@ let executeTerm (qterm : QTerm) =
         let newBinaryOp =
             match qbinaryop with
             | BinaryOp b -> b
-            | choiceB(id,listBinaryOps) -> listBinaryOps[rand.Next(1,101)] //what is the exactly range??
+            | choiceB(id,listBinaryOps) -> listBinaryOps[rand.Next(0,listBinaryOps.Count)] 
         (newTerm1,qbinaryop,newTerm2)
     | QDifferential(variable1,tempDQTerm) ->
           let newDTerm = executeTerm tempDQTerm
@@ -72,4 +72,4 @@ let executeTerm (qterm : QTerm) =
     | QDeterminant(tmpQTerm) ->
          let dterm=executeTerm(tmpQTerm)
          dterm
-    | ChoiceT(id,listTerms) -> listTerms[rand.Next(1,101)] //what is the exactly range?
+    | ChoiceT(id,listTerms) -> listTerms[rand.Next(0,listTerms.Count)] 
