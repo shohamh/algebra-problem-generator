@@ -1,0 +1,3 @@
+﻿module QueryEvaluator
+
+open AlgebraProblemGenerator

@@ -56,6 +56,11 @@
     </Content>
     <Compile Include="AlgebraProblemGenerator.fs" />
     <None Include="App.config" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="QueryBuilder.fs" />
+    <Compile Include="QueryExecutor.fs" />
+    <Compile Include="QueryEvaluator.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">14</MinimumVisualStudioVersion>
