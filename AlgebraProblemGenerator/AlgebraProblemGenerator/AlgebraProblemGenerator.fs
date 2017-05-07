@@ -106,8 +106,8 @@ type Term =
 | Summation of Variable * Term * Term * Term // Term summed with index of name Variable starting from term up to term
 | Limit of Variable * Term * Term // Limit of term when Variable tends to Term
 | Ncr of Term * Term // "term" choose "term" (n above r)
-| Matrix of (Term * int * int) list // list of terms with index pair TODO: better representation of matrix
-| Determinant of Term // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
+//| Matrix of (Term * int * int) list // list of terms with index pair TODO: better representation of matrix
+//| Determinant of Term // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
 
 
 type Domain = Constant * Constant
@@ -155,8 +155,8 @@ type QTerm =
 | QSummation of Variable * QTerm * QTerm * QTerm // Term summed with index of name Variable starting from term up to term
 | QLimit of Variable * QTerm * QTerm // Limit of term when Variable tends to Term
 | QNcr of QTerm * QTerm // "term" choose "term" (n above r)
-| QMatrix of (QTerm * int * int) list // list of terms with index pair TODO: better representation of matrix
-| QDeterminant of QTerm // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
+//| QMatrix of (QTerm * int * int) list // list of terms with index pair TODO: better representation of matrix
+//| QDeterminant of QTerm // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
 | ChoiceT of ChoiceT
 
 type QProblem  = QTerm * QTerm  * VariableDomain list
