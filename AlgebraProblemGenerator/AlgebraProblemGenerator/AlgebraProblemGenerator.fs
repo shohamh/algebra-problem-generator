@@ -35,10 +35,65 @@ module AlgebraProblemGenerator =
     | Trig of Trig
     | InvTrig of InvTrig
 
-
+    [<CustomEquality>]
+    [<CustomComparison>]
     type Constant =
     | Infinity
+    | NegativeInfinity
     | Real of float
+    with
+        static member (-) (x : Constant, y : Constant) =
+            match (x, y) with
+            | (Infinity, _) -> Infinity
+            | (NegativeInfinity, _) -> NegativeInfinity
+            | (Real r1, Real r2) -> Real (r1 - r2)
+            | (Real r1, Infinity) -> NegativeInfinity
+            | (Real r1, NegativeInfinity) -> Infinity
+
+        static member (+) (x : Constant, y : Constant) =
+            match (x, y) with
+            | (Infinity, _) -> Infinity
+            | (NegativeInfinity, _) -> NegativeInfinity
+            | (Real r1, Real r2) -> Real (r1 + r2)
+            | (Real r1, a) -> a
+
+        static member (~-) (x: Constant) =
+            match x with
+            | Infinity -> NegativeInfinity
+            | NegativeInfinity -> Infinity
+            | Real r -> Real (-r)
+        
+        override x.Equals(y) =
+            match y with
+            | :? Constant as c ->
+                match (x, c) with
+                | (Infinity, Infinity) -> true
+                | (NegativeInfinity, NegativeInfinity) -> true
+                | (Real r1, Real r2) -> r1 = r2
+                | (_, _) -> false
+            | _ -> false
+
+        override x.GetHashCode() = 
+            match x with
+            | Infinity -> System.Int32.MaxValue
+            | NegativeInfinity -> System.Int32.MinValue
+            | Real r -> hash r
+
+        interface System.IComparable with
+            member x.CompareTo y =
+                match y with
+                | :? Constant as c ->
+                    match (x, c) with
+                    | (Real r1, Real r2) -> compare r1 r2
+                    | (Infinity, Infinity) -> 0
+                    | (NegativeInfinity, NegativeInfinity) -> 0
+                    | (NegativeInfinity, Infinity) -> -1
+                    | (Infinity, NegativeInfinity) -> 1
+                    | (Infinity, Real r2) -> 1
+                    | (NegativeInfinity, Real r2) -> -1
+                    | (Real r1, Infinity) -> -1
+                    | (Real r1, NegativeInfinity) -> 1
+                | _ -> -1
 
     type Variable = string
 
@@ -56,22 +111,22 @@ module AlgebraProblemGenerator =
     | Matrix of (Term * int * int) list // list of terms with index pair TODO: better representation of matrix
     | Determinant of Term // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
 
-    type VariableDomain =
-    | IntegerDomain of Variable * int * int // Variable domain of Variable from int1 to int2
-    | RealDomain of Variable * Constant * Constant // Variable domain of Variable from const1 to const2
 
+    type Domain = Constant * Constant
+
+    type VariableDomain = Variable * Domain
 
     type Problem = Term * Term * VariableDomain list
        
     type Id = int
 
-    type ChoiceU = Id * UnaryOp Set
+    type ChoiceU = Id * UnaryOp list
 
-    type ChoiceB = Id  * BinaryOp Set
+    type ChoiceB = Id  * BinaryOp list
 
-    type ChoiceT = Id * Term Set
+    type ChoiceT = Id * Term list
 
-    type ChoiceConst = Id * Constant Set
+    type ChoiceConst = Id * Domain list
     
 
     type OpTerm =
@@ -115,63 +170,103 @@ module AlgebraProblemGenerator =
 
     type Query = QProblem * QConstraint list
 
+    let constantInDomain constant domain =
+        constant >= fst domain && constant <= snd domain
 
+    let numberInDomainList x domainList = 
+        List.exists (constantInDomain x) domainList
+
+    let domainLength domain =
+        snd domain - fst domain
+
+    let roundConstant constant =
+        match constant with
+        | Real x -> Real (System.Math.Round x)
+        | Infinity -> Infinity
+        | NegativeInfinity -> NegativeInfinity
+    
+    let unboxConstant constant =
+        match constant with
+        | Real x -> x
+        | Infinity -> System.Double.PositiveInfinity
+        | NegativeInfinity -> System.Double.NegativeInfinity
+    
+    let lengthOfDomainListRange domainList =
+        let ranges = List.map domainLength domainList
+        List.fold (+) 0 ranges
+    
 
     let executeTerm (qterm : QTerm) =
-        // return set of terms
-        let rand = System.Random()
-            match qterm with
-            | QConstant qc -> 
-                match qc with
-                | Constant c -> c
-                | ChoiceConst cc -> rand.Next(1,101)//TODO generate reasonable number and return Constant [that number] 
-            | Variable v -> v
-            | QUnaryTerm (qUnaryOp, tempQTerm) ->
-                let newTerm = executeTerm(tempQTerm)
-                let newUnaryOp =
-                    match qUnaryOp with
-                    | UnaryOp u -> u
-                    | ChoiceU (id, setUnaryOps) -> setUnaryOps[rand.Next(1,101)] // TODO generate random index and choose it from the set
-                (newUnaryOp, newTerm)
-            | QBinaryTerm (tempQTerm1, qbinaryop, tempQTerm2) ->
-                let newTerm1 = executeTerm(tempQTerm1)
-                let newTerm2 = executeTerm(tempQTerm2)
-                let newBinaryOp=
-                    match qbinaryop with
-                    | BinaryOp b -> b
-                    | choiceB(id,setBinaryOps) -> setBinaryOps[rand.Next(1,101)] //what is the exactly range??
-                (newTerm1,qbinaryop,newTerm2)
-            | QDifferential(variable1,tempDQTerm) ->
-                  let newDTerm = executeTerm(tempDQTerm)
-                  (variable1,newDTerm)
-            | QIndefiniteIntegral(variable2,tempIQTerm) ->
-                  let newIterm=executeTerm(tempIQTerm)
-                  (variable2,newIterm)    
-            | QDefiniteIntegral(variable3,tempIQTerm1,tempIQTerm2,tempIQTerm3) ->
-                let term1=executeTerm(tempIQTerm1)
-                let term2=executeTerm(tempIQTerm2)
-                let term3=executeTerm(tempIQTerm3)
-                (variable3,term1,term2,term3)
-            | QSummation(variable4,tempSQTerm1,tempSQTerm2,tempSQTerm3) ->
-                let Sterm1=executeTerm(tempSQTerm1)
-                let Sterm2=executeTerm(tempSQTerm2)
-                let Sterm3=executeTerm(tempSQTerm3)
-                (variable4,Sterm1,Sterm2,Sterm3)
-            | QLimit(variable5,tempLQTerm1,tempLQTerm2) ->
-                let Lterm1=executeTerm(tempLQTerm1)
-                let Lterm2=executeTerm(tempLQTerm2)
-                (variable5,Lterm1,Lterm2)
-            | QNcr(tempNQterm1,tempNQTerm2) ->
-                let Nterm1=executeTerm(tempNQterm1)
-                let Nterm2=executeTerm(tempNQterm2)
-                (Nterm1,Nterm2)
+        // return list of terms
+        match qterm with
+        | QConstant qc -> 
+            match qc with
+            | Constant c -> c
+            | ChoiceConst (id, domainlist) -> 
+                let rand = System.Random()
+                let maxRange = List.max (List.map snd domainlist)
+                let minRange = List.min (List.map fst domainlist)
+                let max = 
+                    match maxRange with
+                    | Infinity -> Real (float 50)
+                    | a -> a
+                let min = 
+                    match minRange with
+                    | NegativeInfinity -> Real (float -50)
+                    | a -> a
+                
+                if min = roundConstant min && max = roundConstant max then
+                    Real (float (rand.Next ((int (unboxConstant min)), int (unboxConstant max))))
+                else
+                    Real (rand.NextDouble() * unboxConstant (max - min) + unboxConstant min) //TODO: try round it if the eval passes after.
+                
+        | Variable v -> v
+        | QUnaryTerm (qUnaryOp, tempQTerm) ->
+            let newTerm = executeTerm tempQTerm
+            let newUnaryOp =
+                match qUnaryOp with
+                | UnaryOp u -> u
+                | ChoiceU (id, listUnaryOps) -> listUnaryOps[rand.Next(1,101)] // TODO generate random index and choose it from the list
+            (newUnaryOp, newTerm)
+        | QBinaryTerm (tempQTerm1, qbinaryop, tempQTerm2) ->
+            let newTerm1 = executeTerm tempQTerm1
+            let newTerm2 = executeTerm tempQTerm2
+            let newBinaryOp =
+                match qbinaryop with
+                | BinaryOp b -> b
+                | choiceB(id,listBinaryOps) -> listBinaryOps[rand.Next(1,101)] //what is the exactly range??
+            (newTerm1,qbinaryop,newTerm2)
+        | QDifferential(variable1,tempDQTerm) ->
+              let newDTerm = executeTerm tempDQTerm
+              (variable1,newDTerm)
+        | QIndefiniteIntegral(variable2,tempIQTerm) ->
+              let newIterm=executeTerm tempIQTerm
+              (variable2,newIterm)    
+        | QDefiniteIntegral(variable3,tempIQTerm1,tempIQTerm2,tempIQTerm3) ->
+            let term1=executeTerm tempIQTerm1
+            let term2=executeTerm tempIQTerm2 
+            let term3=executeTerm tempIQTerm3
+            (variable3,term1,term2,term3)
+        | QSummation(variable4,tempSQTerm1,tempSQTerm2,tempSQTerm3) ->
+            let Sterm1=executeTerm tempSQTerm1
+            let Sterm2=executeTerm tempSQTerm2
+            let Sterm3=executeTerm tempSQTerm3
+            (variable4,Sterm1,Sterm2,Sterm3)
+        | QLimit(variable5,tempLQTerm1,tempLQTerm2) ->
+            let Lterm1=executeTerm tempLQTerm1
+            let Lterm2=executeTerm tempLQTerm2
+            (variable5,Lterm1,Lterm2)
+        | QNcr(tempNQterm1,tempNQTerm2) ->
+            let Nterm1=executeTerm tempNQterm1
+            let Nterm2=executeTerm tempNQterm2
+            (Nterm1,Nterm2)
 
-   //         | QMatrix((tempMQTerm,int1,int2)list) ->
- 
-            | QDeterminant(tmpQTerm) ->
-                 let dterm=executeTerm(tmpQTerm)
-                 dterm
-            | ChoiceT(id,setTerms) -> setTerms[rand.Next(1,101)] //what is the exactly range?
+        //| QMatrix((tempMQTerm,int1,int2)list) ->
+
+        | QDeterminant(tmpQTerm) ->
+             let dterm=executeTerm(tmpQTerm)
+             dterm
+        | ChoiceT(id,listTerms) -> listTerms[rand.Next(1,101)] //what is the exactly range?
 
    
 
