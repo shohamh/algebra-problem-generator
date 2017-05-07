@@ -34,41 +34,41 @@ let rec executeTerm (qterm : QTerm) =
             | UnaryOp u -> u
             | ChoiceU (id, listUnaryOps) -> List.item (rand.Next (0, List.length listUnaryOps)) listUnaryOps
         Term.UnaryTerm (newUnaryOp, newTerm)
-    | QBinaryTerm (tempQTerm1, qbinaryop, tempQTerm2) ->
-        let newTerm1 = executeTerm tempQTerm1
-        let newTerm2 = executeTerm tempQTerm2
-        let newBinaryOp =
-            match qbinaryop with
+    | QBinaryTerm (tempQTerm1, qBinaryOp, tempQTerm2) ->
+        let term1 = executeTerm tempQTerm1
+        let term2 = executeTerm tempQTerm2
+        let binaryOp =
+            match qBinaryOp with
             | BinaryOp b -> b
-            | ChoiceB(id,listBinaryOps) -> List.item (rand.Next (0, List.length listBinaryOps)) listBinaryOps
-        Term.BinaryTerm (newTerm1, newBinaryOp, newTerm2)
-    | QDifferential(variable1,tempDQTerm) ->
-          let newDTerm = executeTerm tempDQTerm
-          Term.Differential (variable1,newDTerm)
-    | QIndefiniteIntegral(variable2,tempIQTerm) ->
-          let newIterm = executeTerm tempIQTerm
-          Term.IndefiniteIntegral (variable2,newIterm)    
-    | QDefiniteIntegral(variable3,tempIQTerm1,tempIQTerm2,tempIQTerm3) ->
-        let term1=executeTerm tempIQTerm1
-        let term2=executeTerm tempIQTerm2 
-        let term3=executeTerm tempIQTerm3
-        Term.DefiniteIntegral (variable3,term1,term2,term3)
-    | QSummation(variable4,tempSQTerm1,tempSQTerm2,tempSQTerm3) ->
-        let Sterm1=executeTerm tempSQTerm1
-        let Sterm2=executeTerm tempSQTerm2
-        let Sterm3=executeTerm tempSQTerm3
-        Term.Summation (variable4,Sterm1,Sterm2,Sterm3)
-    | QLimit(variable5,tempLQTerm1,tempLQTerm2) ->
-        let Lterm1=executeTerm tempLQTerm1
-        let Lterm2=executeTerm tempLQTerm2
-        Term.Limit (variable5,Lterm1,Lterm2)
-    | QNcr(tempNQTerm1,tempNQTerm2) ->
-        let Nterm1=executeTerm tempNQTerm1
-        let Nterm2=executeTerm tempNQTerm2
-        Term.Ncr (Nterm1,Nterm2)
+            | ChoiceB(id, listBinaryOps) -> List.item (rand.Next (0, List.length listBinaryOps)) listBinaryOps
+        Term.BinaryTerm (term1, binaryOp, term2)
+    | QDifferential(variable, tempQTerm) ->
+          let term = executeTerm tempQTerm
+          Term.Differential (variable, term)
+    | QIndefiniteIntegral(variable ,tempQTerm) ->
+          let term = executeTerm tempQTerm
+          Term.IndefiniteIntegral (variable, term)    
+    | QDefiniteIntegral(variable, tempQTerm1, tempQTerm2, tempQTerm3) ->
+        let term1 = executeTerm tempQTerm1
+        let term2 = executeTerm tempQTerm2 
+        let term3 = executeTerm tempQTerm3
+        Term.DefiniteIntegral (variable, term1, term2, term3)
+    | QSummation(variable, tempQTerm1, tempQTerm2, tempQTerm3) ->
+        let term1 = executeTerm tempQTerm1
+        let term2 = executeTerm tempQTerm2
+        let term3 = executeTerm tempQTerm3
+        Term.Summation (variable, term1, term2, term3)
+    | QLimit(variable, tempQTerm1, tempQTerm2) ->
+        let term1 = executeTerm tempQTerm1
+        let term2 = executeTerm tempQTerm2
+        Term.Limit (variable, term1, term2)
+    | QNcr(tempQTerm1, tempQTerm2) ->
+        let term1 = executeTerm tempQTerm1
+        let term2 = executeTerm tempQTerm2
+        Term.Ncr (term1, term2)
 
     //| QMatrix((tempMQTerm,int1,int2)list) ->
 
 //    | QDeterminant(tmpQTerm) ->
   //       executeTerm(tmpQTerm)
-    | ChoiceT(id,listTerms) -> List.item (rand.Next (0, List.length listTerms)) listTerms
+    | ChoiceT(id, listTerms) -> List.item (rand.Next (0, List.length listTerms)) listTerms
