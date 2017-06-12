@@ -1,4 +1,3 @@
 ﻿module QueryBuilder
 
 open AlgebraProblemGenerator
-

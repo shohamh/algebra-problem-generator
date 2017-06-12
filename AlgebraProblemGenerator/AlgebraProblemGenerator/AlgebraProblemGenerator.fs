@@ -1,37 +1,8 @@
 module AlgebraProblemGenerator
 
-type BinaryOp =
-| Plus
-| Minus
-| Multiply
-| Divide
-| Exponent
 
+type Variable = string
 
-type Trig =
-| Sin
-| Cos
-| Tan
-| Cot
-| Sec
-| Csc
-
-type InvTrig =
-| Arcsin
-| Arccos
-| Arctan
-| Arccot
-| Arcsec
-| Arccsc
-
-
-type UnaryOp =
-| Negative
-| Square
-| NaturalLog
-| Sqrt
-| Trig of Trig
-| InvTrig of InvTrig
 
 [<CustomEquality>]
 [<CustomComparison>]
@@ -93,13 +64,53 @@ with
                 | (Real r1, NegativeInfinity) -> 1
             | _ -> -1
 
-type Variable = string
+
+
+type Trig =
+| Sin
+| Cos
+| Tan
+| Cot
+| Sec
+| Csc
+
+type InvTrig =
+| Arcsin
+| Arccos
+| Arctan
+| Arccot
+| Arcsec
+| Arccsc
+
+type UnaryOp =
+| Negative
+| Square
+| NaturalLog
+| Sqrt
+| Trig of Trig
+| InvTrig of InvTrig
+
+type BinaryOp =
+| Plus
+| Minus
+| Multiply
+| Divide
+| Exponent
+
+type AssociativeOp =
+| Plus
+| Multiply
+
+//let associativeOps = set [Plus; Multiply]
+//let commutativeOps = set [Plus; Multiply]
+
 
 type Term =
 | Constant of Constant
 | Variable of Variable
 | UnaryTerm of UnaryOp * Term
 | BinaryTerm of Term * BinaryOp * Term
+| AssociativeTerm of AssociativeOp * Term list
 | Differential of Variable * Term // Term differentiated by variable
 | IndefiniteIntegral of Variable * Term // Term integrated by variable
 | DefiniteIntegral of Variable * Term * Term * Term // Term integrated by variable from term to term
@@ -116,11 +127,13 @@ type VariableDomain = Variable * Domain
 
 type Problem = Term * Term * VariableDomain list
    
-type Id = int
+type Id = uint64
 
 type ChoiceU = Id * UnaryOp list
 
 type ChoiceB = Id  * BinaryOp list
+
+type ChoiceA = Id * AssociativeOp list
 
 type ChoiceT = Id * Term list
 
@@ -140,6 +153,10 @@ type QBinaryOp =
 | BinaryOp of BinaryOp
 | ChoiceB of ChoiceB
 
+type QAssociativeOp =
+| AssociativeOp of AssociativeOp
+| ChoiceA of ChoiceA
+
 type QConstant =
 | Constant of Constant
 | ChoiceConst of ChoiceConst
@@ -149,6 +166,7 @@ type QTerm =
 | Variable of Variable
 | QUnaryTerm of QUnaryOp * QTerm
 | QBinaryTerm of QTerm * QBinaryOp * QTerm
+| QAssociativeTerm of QAssociativeOp * QTerm list
 | QDifferential of Variable * QTerm // Term differentiated by variable
 | QIndefiniteIntegral of Variable * QTerm // Term integrated by variable
 | QDefiniteIntegral of Variable * QTerm * QTerm * QTerm // Term integrated by variable from term to term
@@ -162,7 +180,7 @@ type QTerm =
 type QProblem  = QTerm * QTerm  * VariableDomain list
 
 type QConstraint = 
-| FunctionalConstraint of Id *(Id list -> OpTerm)
+| FunctionalConstraint of Id * (Id list -> OpTerm)
 | RelationalConstraint of (Id list -> bool)
 
 

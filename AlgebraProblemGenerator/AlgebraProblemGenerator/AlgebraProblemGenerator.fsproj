@@ -54,8 +54,8 @@
     <Content Include="any\netstandard1.6\FSharp.Core.sigdata">
       <Paket>True</Paket>
     </Content>
-    <Compile Include="AlgebraProblemGenerator.fs" />
     <None Include="App.config" />
+    <Compile Include="AlgebraProblemGenerator.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="QueryBuilder.fs" />
     <Compile Include="QueryExecutor.fs" />
