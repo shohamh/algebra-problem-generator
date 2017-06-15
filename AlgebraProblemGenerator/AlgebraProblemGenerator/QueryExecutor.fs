@@ -8,8 +8,8 @@ let rec executeTerm (qterm : QTerm) =
     match qterm with
     | QConstant qc -> 
         match qc with
-        | Constant c -> Term.Constant c
-        | ChoiceConst (id, domainlist) -> 
+        | JustC c -> Term.TConstant c
+        | ChoiceC (id, domainlist) -> 
             let maxRange = List.max (List.map snd domainlist)
             let minRange = List.min (List.map fst domainlist)
             let max = 
@@ -22,16 +22,16 @@ let rec executeTerm (qterm : QTerm) =
                 | a -> a
             
             if min = roundConstant min && max = roundConstant max then
-                Term.Constant (Real (float (rand.Next ((int (unboxConstant min)), int (unboxConstant max)))))
+                Term.TConstant (Real (float (rand.Next ((int (unboxConstant min)), int (unboxConstant max)))))
             else
-                Term.Constant (Real (rand.NextDouble() * unboxConstant (max - min) + unboxConstant min)) //TODO: try round it if the eval passes after.
+                Term.TConstant (Real (rand.NextDouble() * unboxConstant (max - min) + unboxConstant min)) //TODO: try round it if the eval passes after.
             
-    | Variable v -> Term.Variable v
+    | QVariable v -> Term.TVariable v
     | QUnaryTerm (qUnaryOp, qTerm) ->
         let newTerm = executeTerm qTerm
         let newUnaryOp =
             match qUnaryOp with
-            | UnaryOp u -> u
+            | JustU u -> u
             | ChoiceU (id, listUnaryOps) -> List.item (rand.Next (0, List.length listUnaryOps)) listUnaryOps
         Term.UnaryTerm (newUnaryOp, newTerm)
     | QBinaryTerm (qTerm1, qBinaryOp, qTerm2) ->
@@ -39,14 +39,14 @@ let rec executeTerm (qterm : QTerm) =
         let term2 = executeTerm qTerm2
         let binaryOp =
             match qBinaryOp with
-            | BinaryOp b -> b
+            | JustB b -> b
             | ChoiceB(id, listBinaryOps) -> List.item (rand.Next (0, List.length listBinaryOps)) listBinaryOps
         Term.BinaryTerm (term1, binaryOp, term2)
     | QAssociativeTerm (qAssociativeOp, qTermList) ->
         let termList = List.map executeTerm qTermList
         let associativeOp =
             match qAssociativeOp with
-            | AssociativeOp a -> a
+            | JustA a -> a
             | ChoiceA(id, listAssociativeOps) -> List.item (rand.Next (0, List.length listAssociativeOps)) listAssociativeOps
         Term.AssociativeTerm (associativeOp, termList)
     | QDifferential(variable, qTerm) ->
@@ -73,9 +73,7 @@ let rec executeTerm (qterm : QTerm) =
         let term1 = executeTerm qTerm1
         let term2 = executeTerm qTerm2
         Term.Ncr (term1, term2)
-
     //| QMatrix((tempMQTerm,int1,int2)list) ->
-
-//    | QDeterminant(tmpQTerm) ->
-  //       executeTerm(tmpQTerm)
+    //| QDeterminant(tmpQTerm) ->
+    //executeTerm(tmpQTerm)
     | ChoiceT(id, listTerms) -> List.item (rand.Next (0, List.length listTerms)) listTerms

@@ -106,8 +106,8 @@ type AssociativeOp =
 
 
 type Term =
-| Constant of Constant
-| Variable of Variable
+| TConstant of Constant
+| TVariable of Variable
 | UnaryTerm of UnaryOp * Term
 | BinaryTerm of Term * BinaryOp * Term
 | AssociativeTerm of AssociativeOp * Term list
@@ -143,27 +143,28 @@ type ChoiceConst = Id * Domain list
 type OpTerm =
 | UnaryOp of UnaryOp
 | BinaryOp of BinaryOp
+| AssociativeOp of AssociativeOp
 | Term of Term
 
 type QUnaryOp =
-| UnaryOp of UnaryOp
+| JustU of UnaryOp
 | ChoiceU of ChoiceU
 
 type QBinaryOp =
-| BinaryOp of BinaryOp
+| JustB of BinaryOp
 | ChoiceB of ChoiceB
 
 type QAssociativeOp =
-| AssociativeOp of AssociativeOp
+| JustA of AssociativeOp
 | ChoiceA of ChoiceA
 
 type QConstant =
-| Constant of Constant
-| ChoiceConst of ChoiceConst
+| JustC of Constant
+| ChoiceC of ChoiceConst
 
 type QTerm =
 | QConstant of QConstant
-| Variable of Variable
+| QVariable of Variable
 | QUnaryTerm of QUnaryOp * QTerm
 | QBinaryTerm of QTerm * QBinaryOp * QTerm
 | QAssociativeTerm of QAssociativeOp * QTerm list
