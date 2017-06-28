@@ -8,7 +8,8 @@ Debug
 *.user
 obj
 bin
-
+!bin/*/*.fsx
+docs
 
 ### Linux ###
 *~
