@@ -7,7 +7,7 @@ Debug
 *.suo
 *.user
 obj
-bin
+bin/*
 !bin/*/*.fsx
 docs
 packages
