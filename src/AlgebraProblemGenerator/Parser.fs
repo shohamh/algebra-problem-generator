@@ -79,7 +79,9 @@ let rec convert (mtag : Mtag) : Term =
     match mtag with
     | Root mtag -> convert mtag
     | Fraction (numerator, denominator) -> Term.BinaryTerm (convert numerator, BinaryOp.Divide, convert denominator)
-    | Row mtagList -> Term.TConstant (Constant.Real 3.0) //TODO: fix
+    | Row mtagList -> 
+        let beforePlus = List.takeWhile (x == Operator "+") mtagList
+
     | Identifier str -> Term.TVariable str
     | Operator str -> Term.TVariable str
     | Number num -> 

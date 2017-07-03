@@ -16,15 +16,15 @@ with
         | (Infinity, _) -> Infinity
         | (NegativeInfinity, _) -> NegativeInfinity
         | (Real r1, Real r2) -> Real (r1 - r2)
-        | (Real r1, Infinity) -> NegativeInfinity
-        | (Real r1, NegativeInfinity) -> Infinity
+        | (Real _, Infinity) -> NegativeInfinity
+        | (Real _, NegativeInfinity) -> Infinity
 
     static member (+) (x : Constant, y : Constant) =
         match (x, y) with
         | (Infinity, _) -> Infinity
         | (NegativeInfinity, _) -> NegativeInfinity
         | (Real r1, Real r2) -> Real (r1 + r2)
-        | (Real r1, a) -> a
+        | (Real _, a) -> a
 
     static member (~-) (x: Constant) =
         match x with
@@ -58,10 +58,10 @@ with
                 | (NegativeInfinity, NegativeInfinity) -> 0
                 | (NegativeInfinity, Infinity) -> -1
                 | (Infinity, NegativeInfinity) -> 1
-                | (Infinity, Real r2) -> 1
-                | (NegativeInfinity, Real r2) -> -1
-                | (Real r1, Infinity) -> -1
-                | (Real r1, NegativeInfinity) -> 1
+                | (Infinity, Real _) -> 1
+                | (NegativeInfinity, Real _) -> -1
+                | (Real _, Infinity) -> -1
+                | (Real _, NegativeInfinity) -> 1
             | _ -> -1
 
 
@@ -211,4 +211,4 @@ let unboxConstant constant =
 
 let lengthOfDomainListRange domainList =
     let ranges = List.map domainLength domainList
-    List.fold (+) 0 ranges
+    List.sum ranges
