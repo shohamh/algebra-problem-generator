@@ -75,13 +75,29 @@ let pMathML    = pMathTag (pMstyle (many <| choice pMainTags)) <!> "pMathML"
 // Converting the Mtag type to our Terms
 ///////////////////////////////////////////
 
+let rec split (predicate: 'T -> bool) (list: 'T list) : ('T list) list =
+    let rec splitUtil acc list =
+        let beforePredicate = List.takeWhile predicate list
+        let afterPredicate = List.skip (beforePredicate.Length) list
+        splitUtil (beforePredicate::acc) afterPredicate
+    splitUtil [] list
+
 let rec convert (mtag : Mtag) : Term =
     match mtag with
     | Root mtag -> convert mtag
     | Fraction (numerator, denominator) -> Term.BinaryTerm (convert numerator, BinaryOp.Divide, convert denominator)
-    | Row mtagList -> 
-        let beforePlus = List.takeWhile (x == Operator "+") mtagList
-
+    | Row mtagList ->
+        let splitByPlusMinus = split (fun x -> x <> Operator "+" || x <> Operator "-") mtagList
+        if List.length splitByPlusMinus = 1 then
+            let splitByMultiplyDivide = split (fun x -> x <> Operator "*" || x <> Operator "/") mtagList
+            if List.length splitByMultiplyDivide = 1 then
+                convert <| Mtag.Row (List.item 0 splitByMultiplyDivide)
+            else
+                Term.TConstant (Real 99999999.0)
+        else // no plus in row
+            Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> convert) splitByPlusMinus)
+        
+        //Term.AssociativeTerm (AssociativeOp.Plus, List.map convert splitByPlus)
     | Identifier str -> Term.TVariable str
     | Operator str -> Term.TVariable str
     | Number num -> 
@@ -93,8 +109,6 @@ let rec convert (mtag : Mtag) : Term =
             else
                 Constant.Real num
         Term.TConstant constant
-
-
 
 let tests = 
     printfn "Parser tests:"
