@@ -56,7 +56,9 @@ let pTag tagName p = between (pBTag tagName) (pETag tagName) p <!> "pTag"
 let identifier = identifier(IdentifierOptions())
 
 let pMi        = pTag "mi" (identifier |>> Mtag.Identifier) <!> "pMi"
-let pMo        = pTag "mo" (pstr "+" <|> pstr "-" |>> Mtag.Operator) <!> "pMo"
+
+let operatorParsers = [pstr "+"; pstr "-"; pstr "*"; pstr "/"]
+let pMo        = pTag "mo" (choice operatorParsers |>> Mtag.Operator) <!> "pMo"
 let pMn        = pTag "mn" (pfloat |>> Mtag.Number) <!> "pMn"
 
 let pMrowTags  = [pMi; pMo; pMn]
@@ -75,26 +77,48 @@ let pMathML    = pMathTag (pMstyle (many <| choice pMainTags)) <!> "pMathML"
 // Converting the Mtag type to our Terms
 ///////////////////////////////////////////
 
-let rec split (predicate: 'T -> bool) (list: 'T list) : ('T list) list =
+let split (predicate: 'T -> bool) (list: 'T list) : ('T list) list =
     let rec splitUtil acc list =
-        let beforePredicate = List.takeWhile predicate list
-        let afterPredicate = List.skip (beforePredicate.Length) list
-        splitUtil (beforePredicate::acc) afterPredicate
-    splitUtil [] list
+        let beforePredicate = List.takeWhile (predicate >> not) list
+        printfn "acc: %A list: %A beforePredicate: %A" acc list beforePredicate
+        let afterPredicate = List.skip beforePredicate.Length list
+        printfn "afterPredicate: %A" afterPredicate
+        match afterPredicate with
+        | x::rest when predicate x -> splitUtil (beforePredicate::acc) rest // x is the element to split with
+        | _ -> beforePredicate::acc
+    List.rev <| splitUtil [] list
+
+// shim an element between each pair of elements in a list
+let rec shim elem lst =
+    match lst with
+    | [] -> []
+    | [x] -> [x]
+    | x::xs -> x::elem::(shim elem xs)
 
 let rec convert (mtag : Mtag) : Term =
+    printfn "convert"
     match mtag with
     | Root mtag -> convert mtag
     | Fraction (numerator, denominator) -> Term.BinaryTerm (convert numerator, BinaryOp.Divide, convert denominator)
     | Row mtagList ->
-        let splitByPlusMinus = split (fun x -> x <> Operator "+" || x <> Operator "-") mtagList
+        printfn "row: %A" mtagList
+        let splitByPlusMinus = split (fun x -> x = Operator "+" || x = Operator "-") mtagList
+        printfn "%A" splitByPlusMinus
         if List.length splitByPlusMinus = 1 then
-            let splitByMultiplyDivide = split (fun x -> x <> Operator "*" || x <> Operator "/") mtagList
+            printfn "len of splitbyminus = 1"
+            let splitByMultiplyDivide = split (fun x -> x = Operator "*" || x = Operator "/") mtagList
             if List.length splitByMultiplyDivide = 1 then
-                convert <| Mtag.Row (List.item 0 splitByMultiplyDivide)
+                printfn "-> len of splitbymultiply = 1"
+                let lst = List.item 0 splitByMultiplyDivide 
+                match lst with
+                | [x] -> convert x
+                | _ -> convert (Mtag.Row <| shim (Operator "*") lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
             else
-                Term.TConstant (Real 99999999.0)
+                printfn "-> len of splitbymultiply = 1"
+               // Term.TConstant (Real 99999999.0)
+                Term.AssociativeTerm(AssociativeOp.Multiply, List.map (Mtag.Row >> convert) splitByMultiplyDivide)
         else // no plus in row
+            printfn "len of splitbyminus > 1"
             Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> convert) splitByPlusMinus)
         
         //Term.AssociativeTerm (AssociativeOp.Plus, List.map convert splitByPlus)
@@ -113,7 +137,7 @@ let rec convert (mtag : Mtag) : Term =
 let tests = 
     printfn "Parser tests:"
     printfn "----------------------------\n"
-    let result = test pMathML "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow>  <mi> r </mi><mo>+</mo><mn>3</mn>\n </mrow> </mstyle>\n</math>"
+    let result = test pMathML "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>+</mo><mn>3</mn><mo>/</mo><mi>b</mi>\n </mrow> </mstyle>\n</math>"
     let term = 
         match result with
         | Some mtagList ->
