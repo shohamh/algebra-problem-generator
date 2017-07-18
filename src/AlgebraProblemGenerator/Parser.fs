@@ -2,7 +2,7 @@
 
 open FParsec
 open AlgebraProblemGenerator
-
+open System.Threading
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -43,6 +43,7 @@ type Mtag =
 | Identifier of string
 | Operator of string
 | Number of float
+| Term of Term //TODO: fix ugly hack when you have brain, not like 2am me
 
 // BTag = Begin Tag
 // ETag = End Tag
@@ -76,50 +77,100 @@ let pMathML    = pMathTag (pMstyle (many <| choice pMainTags)) <!> "pMathML"
 ///////////////////////////////////////////
 // Converting the Mtag type to our Terms
 ///////////////////////////////////////////
-
-let split (predicate: 'T -> bool) (list: 'T list) : ('T list) list =
-    let rec splitUtil acc list =
-        let beforePredicate = List.takeWhile (predicate >> not) list
-        printfn "acc: %A list: %A beforePredicate: %A" acc list beforePredicate
-        let afterPredicate = List.skip beforePredicate.Length list
-        printfn "afterPredicate: %A" afterPredicate
+//TODO: List.partition instead of takeWhile and skip
+let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
+    let rec splitUtil acc lst =
+        let beforePredicate = List.takeWhile (predicate >> not) lst
+        let afterPredicate = List.skip beforePredicate.Length lst
         match afterPredicate with
         | x::rest when predicate x -> splitUtil (beforePredicate::acc) rest // x is the element to split with
         | _ -> beforePredicate::acc
-    List.rev <| splitUtil [] list
+    List.rev <| splitUtil [] lst
 
 // shim an element between each pair of elements in a list
-let rec shim elem lst =
+//TODO: test this shit
+let rec shim (elem: 'T) (lst: 'T list) =
     match lst with
     | [] -> []
     | [x] -> [x]
     | x::xs -> x::elem::(shim elem xs)
 
 let rec convert (mtag : Mtag) : Term =
-    printfn "convert"
     match mtag with
     | Root mtag -> convert mtag
     | Fraction (numerator, denominator) -> Term.BinaryTerm (convert numerator, BinaryOp.Divide, convert denominator)
+    | Row mtagList when List.length mtagList = 1 -> 
+        printfn "row (len=1): %A" mtagList
+        convert <| List.item 0 mtagList
     | Row mtagList ->
+        //Thread.Sleep 1000 //for debugging
         printfn "row: %A" mtagList
         let splitByPlusMinus = split (fun x -> x = Operator "+" || x = Operator "-") mtagList
-        printfn "%A" splitByPlusMinus
+        printfn "sByPM: %A" splitByPlusMinus
         if List.length splitByPlusMinus = 1 then
-            printfn "len of splitbyminus = 1"
+            // no plus or minuses in the expression
             let splitByMultiplyDivide = split (fun x -> x = Operator "*" || x = Operator "/") mtagList
+            printfn "sByMD: %A" splitByMultiplyDivide
             if List.length splitByMultiplyDivide = 1 then
-                printfn "-> len of splitbymultiply = 1"
+                // no multiply or divide in the expression, add multiplication between what is there
                 let lst = List.item 0 splitByMultiplyDivide 
                 match lst with
                 | [x] -> convert x
                 | _ -> convert (Mtag.Row <| shim (Operator "*") lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
             else
-                printfn "-> len of splitbymultiply = 1"
-               // Term.TConstant (Real 99999999.0)
-                Term.AssociativeTerm(AssociativeOp.Multiply, List.map (Mtag.Row >> convert) splitByMultiplyDivide)
+                // only multiply and divide in the expression
+                let rec f lst =
+                    printfn "f-lst: %A" lst
+                    let opIndex = List.tryFindIndexBack (fun x -> x = Operator "*" || x = Operator "/") lst
+                    match opIndex with
+                    | Some index ->
+                        match List.item index lst with
+                        | Operator "*" ->
+                            // keep looking for *
+                            let notMultiplyIndex = List.tryFindIndexBack (fun x -> x = Operator "/") lst
+                            match notMultiplyIndex with
+                            | Some ind -> 
+                                let x, y = List.splitAt ind lst
+                                printfn "x: %A, y: %A" x y
+                                Term.BinaryTerm (Term.AssociativeTerm(Multiply, List.rev (List.map convert x)), Divide, f y) 
+                            | None ->
+                                printfn "f-lst: no division"
+                                let operands = split (fun x -> x = Operator "*") lst
+                                // TODO: prove that there has to be one operand in each sublist from split,
+                                //       maybe switch to Mtag.Row'ing them and deal with it in the other match case for Mtag.Row (len 1)
+                                let m = Term.AssociativeTerm(Multiply, List.map (List.item 0 >> convert) operands)
+                                printfn "f-finalterm: %A" m
+                                m
+                        | Operator "/" ->
+                            printfn "f-lst: /-index = %d" index
+                            let beforeDivide, afterDivide = List.splitAt index lst
+                            let afterDivideWithoutOp = List.skip 1 afterDivide
+                            printfn "f-lst: %A / %A" beforeDivide afterDivideWithoutOp
+                            Term.BinaryTerm (convert (Mtag.Row beforeDivide), BinaryOp.Divide, f afterDivideWithoutOp)
+                        | _ ->
+                            printfn "ERROR: found unexpected operator when looking for multiplication and division"
+                            Term.TConstant(Real 999999999.9)
+                    | None ->
+                        convert <| Mtag.Row lst
+                f mtagList
         else // no plus in row
-            printfn "len of splitbyminus > 1"
-            Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> convert) splitByPlusMinus)
+            let splitByMinus = split (fun x -> x = Operator "-") mtagList
+            let firstElement = List.item 0 splitByMinus
+            let afterMinus = List.skip 1 splitByMinus
+            let mapping x =
+                match x with
+                | [] -> []
+                | y::ys ->
+                    let z = 
+                        match y with
+                        | Number n -> Number -n
+                        | Identifier i -> Mtag.Term (Term.UnaryTerm (Negative, Term.TVariable i))
+                        // | Fraction (x, y) -> Mtag.Term (Term.UnaryTerm (Negative, Term.BinaryTerm())) //TODO
+                    z::ys
+            let afterMinusFixed = List.map mapping afterMinus
+            let finalList = firstElement :: afterMinusFixed
+            let t = split (fun x -> x = Operator "+") (List.concat (shim [Operator "+"] finalList))
+            Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> convert) t)
         
         //Term.AssociativeTerm (AssociativeOp.Plus, List.map convert splitByPlus)
     | Identifier str -> Term.TVariable str
@@ -133,11 +184,12 @@ let rec convert (mtag : Mtag) : Term =
             else
                 Constant.Real num
         Term.TConstant constant
+    | Term t -> t
 
 let tests = 
     printfn "Parser tests:"
     printfn "----------------------------\n"
-    let result = test pMathML "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>+</mo><mn>3</mn><mo>/</mo><mi>b</mi>\n </mrow> </mstyle>\n</math>"
+    let result = test pMathML "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>-</mo><mn>3</mn><mo>-</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>-</mo><mi>b</mi>\n </mrow> </mstyle>\n</math>"
     let term = 
         match result with
         | Some mtagList ->
