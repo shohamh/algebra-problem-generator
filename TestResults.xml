@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<!--This file represents the results of running a test suite-->
-<test-results name="/home/shoham/algebra-problem-generator/tests/AlgebraProblemGenerator.Tests/bin/Release/AlgebraProblemGenerator.Tests.dll" total="0" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2017-06-28" time="22:42:17">
-  <environment nunit-version="2.6.4.14350" clr-version="4.0.30319.42000" os-version="Unix 4.11.6.1" platform="Unix" cwd="/home/shoham/algebra-problem-generator" machine-name="arch" user="shoham" user-domain="arch" />
-  <culture-info current-culture="en-US" current-uiculture="en-US" />
-  <test-suite type="Assembly" name="/home/shoham/algebra-problem-generator/tests/AlgebraProblemGenerator.Tests/bin/Release/AlgebraProblemGenerator.Tests.dll" executed="True" result="Inconclusive" success="False" time="0.007" asserts="0" />
-</test-results>

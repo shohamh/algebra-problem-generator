@@ -1,0 +1,8 @@
+C:\Users\shoham\Downloads\algebra-problem-generator\obj\Debug\netcoreapp2.0\algebra-problem-generator.fsproj.CoreCompileInputs.cache
+C:\Users\shoham\Downloads\algebra-problem-generator\bin\Debug\netcoreapp2.0\algebra-problem-generator.deps.json
+C:\Users\shoham\Downloads\algebra-problem-generator\bin\Debug\netcoreapp2.0\algebra-problem-generator.runtimeconfig.json
+C:\Users\shoham\Downloads\algebra-problem-generator\bin\Debug\netcoreapp2.0\algebra-problem-generator.runtimeconfig.dev.json
+C:\Users\shoham\Downloads\algebra-problem-generator\bin\Debug\netcoreapp2.0\algebra-problem-generator.dll
+C:\Users\shoham\Downloads\algebra-problem-generator\bin\Debug\netcoreapp2.0\algebra-problem-generator.pdb
+C:\Users\shoham\Downloads\algebra-problem-generator\obj\Debug\netcoreapp2.0\algebra-problem-generator.dll
+C:\Users\shoham\Downloads\algebra-problem-generator\obj\Debug\netcoreapp2.0\algebra-problem-generator.pdb
