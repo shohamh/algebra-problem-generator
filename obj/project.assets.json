@@ -4371,28 +4371,30 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\shoham\\.nuget\\packages\\": {},
+    "C:\\Users\\Lionheart\\.nuget\\packages\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\shoham\\Downloads\\algebra-problem-generator\\algebra-problem-generator.fsproj",
+      "projectUniqueName": "C:\\Users\\Lionheart\\Source\\Repos\\algebra-problem-generator\\algebra-problem-generator.fsproj",
       "projectName": "algebra-problem-generator",
-      "projectPath": "C:\\Users\\shoham\\Downloads\\algebra-problem-generator\\algebra-problem-generator.fsproj",
-      "packagesPath": "C:\\Users\\shoham\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\shoham\\Downloads\\algebra-problem-generator\\obj\\",
+      "projectPath": "C:\\Users\\Lionheart\\Source\\Repos\\algebra-problem-generator\\algebra-problem-generator.fsproj",
+      "packagesPath": "C:\\Users\\Lionheart\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Lionheart\\Source\\Repos\\algebra-problem-generator\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
-        "C:\\Users\\shoham\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\Lionheart\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "netcoreapp2.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {

@@ -25,15 +25,7 @@ let rec Build (root:Term) =
             let qop = QUnaryOp.ChoiceU (0, List.map UnaryOp.InvTrig [InvTrig.Arcsin; InvTrig.Arccos; InvTrig.Arctan; InvTrig.Arccot; InvTrig.Arcsec; InvTrig.Arccsc])
             QTerm.QUnaryTerm (qop, Build term)
     | BinaryTerm (term1,op,term2) ->
-        match op with
-        | BinaryOp.Plus | BinaryOp.Minus -> 
-            let qop = QBinaryOp.ChoiceB (0, [BinaryOp.Plus; BinaryOp.Minus])
-            QTerm.QBinaryTerm (Build term1, qop, Build term2)
-        | BinaryOp.Multiply | BinaryOp.Divide -> 
-            let qop = QBinaryOp.ChoiceB (0, [BinaryOp.Multiply; BinaryOp.Divide])
-            QTerm.QBinaryTerm (Build term1, qop, Build term2)
-        | BinaryOp.Exponent -> 
-            QTerm.QBinaryTerm (Build term1, QBinaryOp.JustB BinaryOp.Exponent , Build term2)
+        QTerm.QBinaryTerm (Build term1, QBinaryOp.JustB op , Build term2)
     | AssociativeTerm (op,lst) -> 
         let qlst = List.map Build lst
         match op with

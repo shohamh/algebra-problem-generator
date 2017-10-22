@@ -42,6 +42,8 @@ let rec executeTerm (qterm : QTerm) =
             | JustB b -> b
             | ChoiceB(id, listBinaryOps) -> List.item (rand.Next (0, List.length listBinaryOps)) listBinaryOps
         Term.BinaryTerm (term1, binaryOp, term2)
+    //|
+
     | QAssociativeTerm (qAssociativeOp, qTermList) ->
         let termList = List.map executeTerm qTermList
         let associativeOp =
@@ -76,4 +78,4 @@ let rec executeTerm (qterm : QTerm) =
     //| QMatrix((tempMQTerm,int1,int2)list) ->
     //| QDeterminant(tmpQTerm) ->
     //executeTerm(tmpQTerm)
-    | ChoiceT(id, listTerms) -> List.item (rand.Next (0, List.length listTerms)) listTerms
+    | QChoice(listTerms) -> List.item (rand.Next (0, List.length listTerms)) listTerms |> executeTerm

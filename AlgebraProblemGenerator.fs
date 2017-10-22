@@ -91,8 +91,6 @@ type UnaryOp =
 | InvTrig of InvTrig
 
 type BinaryOp =
-| Plus
-| Minus
 | Multiply
 | Divide
 | Exponent
@@ -100,6 +98,10 @@ type BinaryOp =
 type AssociativeOp =
 | Plus
 | Multiply
+
+type BinORAssoc =
+| BinaryOp of BinaryOp
+| AssociativeOp of AssociativeOp
 
 //let associativeOps = set [Plus; Multiply]
 //let commutativeOps = set [Plus; Multiply]
@@ -135,9 +137,9 @@ type ChoiceB = Id  * BinaryOp list
 
 type ChoiceA = Id * AssociativeOp list
 
-type ChoiceT = Id * Term list
-
 type ChoiceConst = Id * Domain list
+
+type ChoiceBA = Id * BinORAssoc list
 
 
 type OpTerm =
@@ -154,6 +156,10 @@ type QBinaryOp =
 | JustB of BinaryOp
 | ChoiceB of ChoiceB
 
+type QBinORAssoc = 
+| JustBA of QBinORAssoc
+| ChoiceBA of ChoiceBA
+
 type QAssociativeOp =
 | JustA of AssociativeOp
 | ChoiceA of ChoiceA
@@ -167,6 +173,7 @@ type QTerm =
 | QVariable of Variable
 | QUnaryTerm of QUnaryOp * QTerm
 | QBinaryTerm of QTerm * QBinaryOp * QTerm
+| QBinORAssoc of QBinORAssoc * QTerm list
 | QAssociativeTerm of QAssociativeOp * QTerm list
 | QDifferential of Variable * QTerm // Term differentiated by variable
 | QIndefiniteIntegral of Variable * QTerm // Term integrated by variable
@@ -176,7 +183,7 @@ type QTerm =
 | QNcr of QTerm * QTerm // "term" choose "term" (n above r)
 //| QMatrix of (QTerm * int * int) list // list of terms with index pair TODO: better representation of matrix
 //| QDeterminant of QTerm // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
-| ChoiceT of ChoiceT
+| QChoice of QTerm list
 
 type QProblem  = QTerm * QTerm  * VariableDomain list
 
