@@ -187,12 +187,12 @@ type QTerm =
 
 type QProblem  = QTerm * QTerm  * VariableDomain list
 
-type QConstraint = 
-| FunctionalConstraint of Id * (Id list -> OpTerm)
-| RelationalConstraint of (Id list -> bool)
+//type QConstraint = 
+//| FunctionalConstraint of Id * (Id list -> OpTerm)
+//| RelationalConstraint of (Id list -> bool)
 
 
-type Query = QProblem * QConstraint list
+//type Query = QProblem * QConstraint list
 
 
 let constantInDomain constant domain =
@@ -219,3 +219,13 @@ let unboxConstant constant =
 let lengthOfDomainListRange domainList =
     let ranges = List.map domainLength domainList
     List.sum ranges
+
+
+//Constraint Related Defenitions
+type ConstantCon =
+| Identical
+| Range of Domain list
+
+type Constraint =
+| Free
+| ConstantCon of ConstantCon

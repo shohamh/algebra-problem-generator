@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="fparsec" Version="1.0.3" />
+    <Compile Include="Utils.fs"/>
     <Compile Include="AlgebraProblemGenerator.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="QueryBuilder.fs" />
