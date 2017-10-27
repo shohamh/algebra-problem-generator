@@ -8,26 +8,30 @@ let rec Build (root:Term) (cons:Constraint list) : QTerm =
     | Term.TConstant con ->
         match con with
         | Real f ->
-            let mutable lst=[]
-            match cons.Head with
-            | Constraint.ConstantCon c ->
-                match c with
-                | ConstantCon.Identical ->
-                    let lst=[(con,con)]
-                    QTerm.QConstant <| QConstant.ChoiceC (0, lst)
-            | Constraint.Free -> 
-                let lst=[(NegativeInfinity,Infinity)]
-                QTerm.QConstant <| QConstant.ChoiceC (0, lst)
-            | _ ->
-                for c in cons do
-                    match c with
-                    | ConstantCon cc ->
-                        let lst= Utils.insert range 0 lst
-                        0
-                    | _ -> 0    
-                QTerm.QConstant <| QConstant.ChoiceC (0, lst)
-        | _ -> 
-            QTerm.QConstant <| QConstant.JustC con
+        //     let mutable lst=[]
+        //     match cons.Head with
+        //     | Constraint.ConstantCon c ->
+        //         match c with
+        //         | ConstantCon.Identical ->
+        //             let lst=[(con,con)]
+        //             QTerm.QConstant <| QConstant.ChoiceC (0, lst)
+        //     | Constraint.Free -> 
+        //         let lst=[(NegativeInfinity,Infinity)]
+        //         QTerm.QConstant <| QConstant.ChoiceC (0, lst)
+        //     | _ ->
+        //         for c in cons do
+        //             match c with
+        //             | ConstantCon cc ->
+        //                 let lst= Utils.insert range 0 lst
+        //                 0
+        //             | _ -> 0    
+        //         QTerm.QConstant <| QConstant.ChoiceC (0, lst)
+        // | _ -> 
+        //     QTerm.QConstant <| QConstant.JustC con
+            let max = f + 100.0
+            let min = f - 100.0
+            let range = (Real min, Real max)
+            QTerm.QConstant <| QConstant.ChoiceC (0, [range]) 
     | Term.TVariable var -> QVariable var
     | UnaryTerm (op,term) ->
         match op with
