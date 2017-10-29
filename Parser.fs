@@ -174,6 +174,32 @@ let rec mtagToTerm (mtag : Mtag) : Term =
         Term.TConstant constant
     | Term t -> t
 
+
+let rec termToMtag (term : Term) =
+    match term with
+    | TConstant tc ->
+        match tc with
+        | Infinity -> Mtag.Number System.Double.PositiveInfinity
+        | NegativeInfinity -> Mtag.Number System.Double.NegativeInfinity
+        | Real r -> Mtag.Number r
+    | TVariable var -> Mtag.Identifier var
+    | UnaryTerm (uop, t1) ->
+        match uop with
+        | Negative ->
+            Mtag.Row [Mtag.Operator "-"; termToMtag t1]
+        | NaturalLog ->
+        | Sqrt ->
+        | Square ->
+        | Trig tr ->
+        | InvTrig it ->
+    | BinaryTerm (t1, bop, t2) ->
+    | AssociativeTerm (aop, termList) ->
+    | _ ->
+        Mtag.Root
+
+let mtagToMathML (mtag : Mtag) =
+    ""
+
 let term (mathML : string) =
     let parsedResult = test pMathML mathML
     match parsedResult with
