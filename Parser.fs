@@ -193,9 +193,21 @@ let rec termToMtag (term : Term) =
         | Trig tr ->
         | InvTrig it ->
     | BinaryTerm (t1, bop, t2) ->
+        match bop with
+        | BinaryOp.Multiply ->
+            Mtag.Row [termToMtag t1; Mtag.Operator "*"; termToMtag t2]
+        | Divide -> // TODO: Fraction
+            Mtag.Row [termToMtag t1; Mtag.Operator "/"; termToMtag t2]
+        | Exponent -> //TODO: sup (super, above)
+            Mtag.Row [termToMtag t1; Mtag.Operator "^"; termToMtag t2]
     | AssociativeTerm (aop, termList) ->
+        match aop with
+        | Plus ->
+            Mtag.Row <| Utils.intersperse (Mtag.Operator "+") (List.map termToMtag termList)
+        | Multiply ->
+            Mtag.Row <| Utils.intersperse (Mtag.Operator "*") (List.map termToMtag termList)
     | _ ->
-        Mtag.Root
+        Mtag.Number 0.0
 
 let mtagToMathML (mtag : Mtag) =
     ""
