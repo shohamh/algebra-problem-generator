@@ -4,7 +4,6 @@ open AlgebraProblemGenerator
 
 let rec build (root:Term) (constraints:Constraint list) : QTerm = 
     printfn "build"
-    //let build (root: Term) = build root [Free] 
     match root with
     | TConstant constant ->
         match constant with

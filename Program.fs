@@ -14,7 +14,7 @@ let mathMLStrings = [
 
 
 let generateSimilarTerm (term : Term) =
-    let qterm = QueryBuilder.Build term [Constraint.Free]
+    let qterm = QueryBuilder.build term [Constraint.Free]
     printfn "QueryBuilder QTerm: %A\n" qterm
     let term2 = QueryExecutor.executeTerm qterm
     printfn "QueryExecutor Generated Term: %A\n" term2
