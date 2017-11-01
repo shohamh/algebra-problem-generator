@@ -222,10 +222,10 @@ let lengthOfDomainListRange domainList =
 
 
 //Constraint Related Defenitions
-type ConstantCon =
+type ConstantConstraint =
 | Identical
 | Range of Domain list
 
 type Constraint =
 | Free
-| ConstantCon of ConstantCon
+| Constant of ConstantConstraint

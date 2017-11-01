@@ -1,66 +1,62 @@
 ﻿module QueryBuilder
 
 open AlgebraProblemGenerator
-open Utils
-let rec Build (root:Term) (cons:Constraint list) : QTerm = 
-    let Build (root: Term) = Build root [Constraint.Free] 
+
+let rec build (root:Term) (constraints:Constraint list) : QTerm = 
+    printfn "build"
+    //let build (root: Term) = build root [Free] 
     match root with
-    | Term.TConstant con ->
-        match con with
-        | Real f ->
-            let mutable lst=[]
-            match cons.Head with
-            | Constraint.ConstantCon c ->
-                match c with
-                | ConstantCon.Identical ->
-                    let lst=[(con,con)]
-                    QTerm.QConstant <| QConstant.ChoiceC (0, lst)
-            | Constraint.Free -> 
-                let lst=[(NegativeInfinity,Infinity)]
-                QTerm.QConstant <| QConstant.ChoiceC (0, lst)
-            | _ ->
-                for c in cons do
-                    match c with
-                    | ConstantCon cc ->
-                        let lst= Utils.insert range 0 lst
-                        0
-                    | _ -> 0    
-                QTerm.QConstant <| QConstant.ChoiceC (0, lst)
-        | _ -> 
-            QTerm.QConstant <| QConstant.JustC con
-    | Term.TVariable var -> QVariable var
+    | TConstant constant ->
+        match constant with
+        | Real _ ->
+            printfn "real"
+            match constraints.Head with
+            | Free -> 
+                QConstant <| ChoiceC (0, [(NegativeInfinity,Infinity)])
+            | Constant constConstraint ->
+                match constConstraint with
+                | Identical ->  
+                    QConstant <| ChoiceC (0, [(constant,constant)])
+                | Range domainList ->
+                     QConstant <| ChoiceC (0, domainList)
+        | _ -> QConstant <| JustC constant
+    | TVariable var -> QVariable var
     | UnaryTerm (op,term) ->
         match op with
-        | UnaryOp.Negative | UnaryOp.NaturalLog | UnaryOp.Sqrt ->
-            QTerm.QUnaryTerm (QUnaryOp.JustU op, Build term) 
-        | UnaryOp.Trig _ ->
-            let qop = QUnaryOp.ChoiceU (0, List.map UnaryOp.Trig [Trig.Sin; Trig.Cos; Trig.Tan; Trig.Cot; Trig.Sec; Trig.Csc])
-            QTerm.QUnaryTerm (qop,Build term)
-        | UnaryOp.InvTrig _ -> 
-            let qop = QUnaryOp.ChoiceU (0, List.map UnaryOp.InvTrig [InvTrig.Arcsin; InvTrig.Arccos; InvTrig.Arctan; InvTrig.Arccot; InvTrig.Arcsec; InvTrig.Arccsc])
-            QTerm.QUnaryTerm (qop, Build term)
+        | Negative | NaturalLog | Sqrt | Square ->
+            QUnaryTerm (JustU op, build term [Free]) 
+        | Trig _ ->
+            let qop = ChoiceU (0, List.map Trig [Sin; Cos; Tan; Cot; Sec; Csc])
+            QUnaryTerm (qop,build term [Free])
+        | InvTrig _ -> 
+            let qop = ChoiceU (0, List.map InvTrig [Arcsin; Arccos; Arctan; Arccot; Arcsec; Arccsc])
+            QUnaryTerm (qop, build term [Free])
     | BinaryTerm (term1,op,term2) ->
-        QTerm.QBinaryTerm (Build term1, QBinaryOp.JustB op , Build term2)
-    | AssociativeTerm (op,lst) -> 
-        let qlst = List.map Build lst
         match op with
-        | AssociativeOp.Plus ->
-            let qop = QAssociativeOp.JustA (AssociativeOp.Plus)
-            QTerm.QAssociativeTerm (qop, qlst)
-        | AssociativeOp.Multiply ->
-            let qop = QAssociativeOp.JustA (AssociativeOp.Multiply)
-            QTerm.QAssociativeTerm (qop, qlst)
+        | Exponent ->
+            QBinaryTerm (build term1 [Free], JustB op , build term2 [Constant Identical])
+        | _ ->
+            QBinaryTerm (build term1 [Free], JustB op , build term2 [Free])
+    | AssociativeTerm (op,lst) -> 
+        let qlst = List.map (fun a -> build a [Free]) lst
+        match op with
+        | Plus ->
+            let qop = JustA (Plus)
+            QAssociativeTerm (qop, qlst)
+        | Multiply ->
+            let qop = JustA (Multiply)
+            QAssociativeTerm (qop, qlst)
     | Differential (var, term) ->
-        QTerm.QDifferential (var, Build term)
+        QDifferential (var, build term [Free])
     | IndefiniteIntegral (var, term) ->
-        QTerm.QIndefiniteIntegral (var, Build term)
+        QIndefiniteIntegral (var, build term [Free])
     | DefiniteIntegral (var, term, term1, term2)->         
-        QTerm.QDefiniteIntegral (var, Build term, Build term1,Build term2)
+        QDefiniteIntegral (var, build term [Free], build term1 [Free],build term2 [Free])
     | Summation (var, term, term1, term2)->
-        QTerm.QSummation (var, Build term, Build term1, Build term2)
+        QSummation (var, build term [Free], build term1 [Free], build term2 [Free])
     | Limit (var, term1, term2)->
-        QTerm.QLimit (var, Build term1, Build term2)
+        QLimit (var, build term1 [Free], build term2 [Free])
     | Ncr (term1, term2)->
-        QTerm.QNcr (Build term1, Build term2)
+        QNcr (build term1 [Free], build term2 [Free])
 
         
