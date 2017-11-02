@@ -39,6 +39,8 @@ let sstr s = spaces >>. skipStringCI s .>> spaces
 type Mtag =
 | Root of Mtag
 | Fraction of Mtag * Mtag
+| Super of Mtag * Mtag
+| Sub of Mtag * Mtag
 | Row of Mtag list
 | Identifier of string
 | Operator of string
@@ -58,17 +60,17 @@ let identifier = identifier(IdentifierOptions())
 
 let pMi        = pTag "mi" (identifier |>> Mtag.Identifier) <!> "pMi"
 
-let operatorParsers = [pstr "+"; pstr "-"; pstr "*"; pstr "/"]
+let operatorParsers = [pstr "+"; pstr "-"; pstr "*"; pstr "/"; pstr "^"]
 let pMo        = pTag "mo" (choice operatorParsers |>> Mtag.Operator) <!> "pMo"
 let pMn        = pTag "mn" (pfloat |>> Mtag.Number) <!> "pMn"
 
 let pMrowTags  = [pMi; pMo; pMn]
 
-let pMrow      = pTag "mrow" (many <| choice pMrowTags |>> Mtag.Row) <!> "pMrow"
+let rec pMrow (_: unit) = pTag "mrow" (many <| choice (pMrowTags @ [pMrow()]) |>> Mtag.Row) <!> "pMrow"
 let pMstyle  p = pTag "mstyle" p <!> "pMstyle"
 let pMathTag p = pTag "math" p <!> "pMathTag"
 
-let pMainTags  = [pMrow; pMo; pMi; pMn]
+let pMainTags  = [pMrow(); pMo; pMi; pMn]
 let pMathML    = pMathTag (pMstyle (many <| choice pMainTags)) <!> "pMathML"
 
 
@@ -187,11 +189,11 @@ let rec termToMtag (term : Term) =
         match uop with
         | Negative ->
             Mtag.Row [Mtag.Operator "-"; termToMtag t1]
-        | NaturalLog ->
-        | Sqrt ->
-        | Square ->
-        | Trig tr ->
-        | InvTrig it ->
+        // | NaturalLog ->
+        // | Sqrt ->
+        // | Square ->
+        // | Trig tr ->
+        // | InvTrig it ->
     | BinaryTerm (t1, bop, t2) ->
         match bop with
         | BinaryOp.Multiply ->
