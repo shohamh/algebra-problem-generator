@@ -31,16 +31,18 @@ let generateSimilarTermFromMathML (mathML : string) =
 
 [<EntryPoint>]
 let main argv =
+    printfn "hi"
+    printfn "%A" Parser.tests 
+    printfn "bye"
+    // let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
     
-    let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
-    
-    let requestedTerms = 
-        if List.length (Array.toList argv) > 0 then
-            List.map generateSimilarTermFromMathML (Array.toList argv)
-        else
-            List.empty
+    // let requestedTerms = 
+    //     if List.length (Array.toList argv) > 0 then
+    //         List.map generateSimilarTermFromMathML (Array.toList argv)
+    //     else
+    //         List.empty
 
 
-    let total = testedTerms @ requestedTerms
+    // let total = testedTerms @ requestedTerms
 
     0 // return an integer exit code

@@ -3,6 +3,8 @@
 open FParsec
 open AlgebraProblemGenerator
 open System.Threading
+open NUnit.Framework
+open FsUnit
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -18,7 +20,7 @@ let test p str =
         None
 
 
-let debug = false
+let debug = true
 
 // Debug trace thing
 let (<!>) (p: Parser<'a, 'b>) label =
@@ -39,9 +41,10 @@ let sstr s = spaces >>. skipStringCI s .>> spaces
 type Mtag =
 | Root of Mtag
 | Fraction of Mtag * Mtag
-| Super of Mtag * Mtag
+| Sup of Mtag * Mtag  // power/exponent
 | Sub of Mtag * Mtag
 | Row of Mtag list
+| Fenced of Mtag  // parentheses are a fencing of a mrow element or of a single other element
 | Identifier of string
 | Operator of string
 | Number of float
@@ -64,14 +67,22 @@ let operatorParsers = [pstr "+"; pstr "-"; pstr "*"; pstr "/"; pstr "^"]
 let pMo        = pTag "mo" (choice operatorParsers |>> Mtag.Operator) <!> "pMo"
 let pMn        = pTag "mn" (pfloat |>> Mtag.Number) <!> "pMn"
 
-let pMrowTags  = [pMi; pMo; pMn]
-
-let rec pMrow (_: unit) = pTag "mrow" (many <| choice (pMrowTags @ [pMrow()]) |>> Mtag.Row) <!> "pMrow"
-let pMstyle  p = pTag "mstyle" p <!> "pMstyle"
 let pMathTag p = pTag "math" p <!> "pMathTag"
 
-let pMainTags  = [pMrow(); pMo; pMi; pMn]
-let pMathML    = pMathTag (pMstyle (many <| choice pMainTags)) <!> "pMathML"
+let pMrow, pMrowRef = createParserForwardedToRef()
+let pMfenced, pMfencedRef = createParserForwardedToRef()
+let pMsup, pMsupRef = createParserForwardedToRef()
+let pMstyle, pMstyleRef = createParserForwardedToRef()
+
+
+let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn]
+
+do pMrowRef := pTag "mrow" (many <| pMtag) |>> Mtag.Row <!> "pMrow"
+do pMfencedRef := pTag "mfenced" (pMrow) |>> Mtag.Fenced <!> "pMfenced"
+do pMsupRef := pTag "msup" (tuple2 pMtag pMtag) |>> Mtag.Sup <!> "pMsup"
+do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
+
+let pMathML    = pMathTag (many pMtag) <!> "pMathML"
 
 
 
@@ -223,12 +234,13 @@ let term (mathML : string) =
         None
 
 
-let tests = 
+let tests =
+    printfn "bb"
     printfn "Parser tests:"
     printfn "----------------------------\n"
 
     let mathMLStrings = [
-        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>-</mo><mn>3</mn><mo>-</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>-</mo><mi>b</mi>\n </mrow> </mstyle>\n</math>"; 
+        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>-</mo><mn>3</mn><mo>-</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>-</mo><mi>b</mi>\n </mrow> \n</math>"; 
         "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow><mi>x</mi><mo>-</mo><mi>y</mi> </mrow> </mstyle>\n</math>"
     ]
 
@@ -238,4 +250,3 @@ let tests =
 
     printfn "\n----------------------------\n\n"
     results
-
