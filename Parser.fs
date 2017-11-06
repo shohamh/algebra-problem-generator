@@ -5,6 +5,7 @@ open AlgebraProblemGenerator
 open System.Threading
 open NUnit.Framework
 open FsUnit
+open Utils
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -84,13 +85,6 @@ do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
 
 let pMathML    = pMathTag (many pMtag) <!> "pMathML"
 
-
-
-
-///////////////////////////////////////////
-// Converting the Mtag type to our Terms
-///////////////////////////////////////////
-//TODO: List.partition instead of takeWhile and skip
 let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
     let rec splitUtil acc lst =
         let beforePredicate = List.takeWhile (predicate >> not) lst
@@ -100,18 +94,22 @@ let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
         | _ -> beforePredicate::acc
     List.rev <| splitUtil [] lst
 
-// shim an element between each pair of elements in a list
-//TODO: test this shit
-let rec shim (elem: 'T) (lst: 'T list) =
-    match lst with
-    | [] -> []
-    | [x] -> [x]
-    | x::xs -> x::elem::(shim elem xs)
-
+let negate mt =
+    match mt with
+    | [x] ->
+        match x with
+        | Number n -> Mtag.Number -n
+        | Identifier i -> Mtag.Term (Term.UnaryTerm (Negative, Term.TVariable i))
+        // | Fraction (x, y) -> Mtag.Term (Term.UnaryTerm (Negative, Term.BinaryTerm())) //TODO
+    | xs -> Mtag.Term (Term.UnaryTerm (Negative, mtagToTerm (Mtag.Row xs))
+        
 let rec mtagToTerm (mtag : Mtag) : Term =
     match mtag with
     | Root mtag -> mtagToTerm mtag
     | Fraction (numerator, denominator) -> Term.BinaryTerm (mtagToTerm numerator, BinaryOp.Divide, mtagToTerm denominator)
+    | Sub (above, below) -> mtagToTerm above//TODO: what even is this
+    | Sup (base_, exponent) -> Term.BinaryTerm (mtagToTerm base_, BinaryOp.Exponent, mtagToTerm exponent)
+    | Fenced mt -> mtagToTerm mt //TODO: is this ok?
     | Row mtagList when List.length mtagList = 1 -> 
         mtagToTerm <| List.item 0 mtagList
     | Row mtagList ->
@@ -124,7 +122,7 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                 let lst = List.item 0 splitByMultiplyDivide 
                 match lst with
                 | [x] -> mtagToTerm x
-                | _ -> mtagToTerm (Mtag.Row <| shim (Operator "*") lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
+                | _ -> mtagToTerm (Mtag.Row <| intersperse (Operator "*") lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
             else
                 // only multiply and divide in the expression
                 let rec f lst =
@@ -154,28 +152,24 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                     | None ->
                         mtagToTerm <| Mtag.Row lst
                 f mtagList
-        else // no plus in row
-            let splitByMinus = split (fun x -> x = Operator "-") mtagList
-            let firstElement = List.item 0 splitByMinus
-            let afterMinus = List.skip 1 splitByMinus
-            let mapping x =
-                match x with
-                | [] -> []
-                | y::ys ->
-                    let z = 
-                        match y with
-                        | Number n -> Number -n
-                        | Identifier i -> Mtag.Term (Term.UnaryTerm (Negative, Term.TVariable i))
-                        // | Fraction (x, y) -> Mtag.Term (Term.UnaryTerm (Negative, Term.BinaryTerm())) //TODO
-                    z::ys
-            let afterMinusFixed = List.map mapping afterMinus
-            let finalList = firstElement :: afterMinusFixed
-            let t = split (fun x -> x = Operator "+") (List.concat (shim [Operator "+"] finalList))
+        else
+            // no plus in row
+            let beforeMinus :: xs = split (fun x -> x = Operator "-") mtagList
+
+            let xsFixed = List.map negate xs
+            let finalList = beforeMinus :: xsFixed
+            let t = split (fun x -> x = Operator "+") (List.concat (intersperse [Operator "+"] finalList))
             Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> mtagToTerm) t)
         
         //Term.AssociativeTerm (AssociativeOp.Plus, List.map convert splitByPlus)
     | Identifier str -> Term.TVariable str
-    | Operator str -> Term.TVariable str
+    | Operator str ->
+        match str with
+        | "+" -> 
+        | "-" ->
+        | "*" ->
+        | "/" ->
+        | "^" ->
     | Number num -> 
         let constant = 
             if num = infinity then
@@ -186,6 +180,8 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                 Constant.Real num
         Term.TConstant constant
     | Term t -> t
+
+
 
 
 let rec termToMtag (term : Term) =
