@@ -210,7 +210,7 @@ let rec termToMtag (term : Term) =
     match term with
     | TConstant tc ->
         match tc with
-        | Infinity -> Mtag.Number System.Double.PositiveInfinity
+        | Infinity -> Mtag.Number System.Double.PositiveInfinity // TODO: verify infinities work like that in mathml
         | NegativeInfinity -> Mtag.Number System.Double.NegativeInfinity
         | Real r -> Mtag.Number r
     | TVariable var -> Mtag.Identifier var
@@ -270,6 +270,8 @@ let tests =
     let results = List.map term mathMLStrings
 
     List.map (printfn "Parsed Term: %A") results
+    let mtags = List.map (Option.map termToMtag) results
+    List.map (printfn "To Mtag: %A") mtags
 
     printfn "\n----------------------------\n\n"
     results

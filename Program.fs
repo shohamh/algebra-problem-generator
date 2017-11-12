@@ -34,6 +34,7 @@ let main argv =
     printfn "hi"
     printfn "%A" Parser.tests 
     printfn "bye"
+    
     // let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
     
     // let requestedTerms = 
