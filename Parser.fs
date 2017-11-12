@@ -125,7 +125,10 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                 let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) expression
                 match splitByPlusMinus with
                 | [] -> []
-                | [x] -> x
+                | [x] ->
+                    match negFirstElem with
+                    | true -> [negate x]
+                    | false -> x
                 | x::xs -> 
                     let fixedX =
                         match negFirstElem with
@@ -197,7 +200,7 @@ and negate (mt : Mtag list) : Mtag =
         match x with
         | Number n -> Mtag.Number -n
         | Identifier i -> Mtag.Term (Term.UnaryTerm (Negative, Term.TVariable i))
-        // | Fraction (x, y) -> Mtag.Term (Term.UnaryTerm (Negative, Term.BinaryTerm())) //TODO
+        | someMtag -> Mtag.Term (Term.UnaryTerm (Negative, mtagToTerm someMtag))
     | xs -> Mtag.Term <| Term.UnaryTerm (Negative, mtagToTerm (Mtag.Row xs))
 
 
@@ -255,11 +258,13 @@ let tests =
     printfn "----------------------------\n"
 
     let mathMLStrings = [
+        "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <msup>\n        <mrow>\n          <mfenced>\n            <mrow>\n              <msup>\n                <mrow>\n                  <mi> y </mi>\n                </mrow>\n                <mrow>\n                  <mn> 2 </mn>\n                </mrow>\n              </msup>\n              <mo> + </mo>\n              <mn> 3 </mn>\n            </mrow>\n          </mfenced>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </mfenced>\n  <mo> - </mo>\n  <mn> 7 </mn>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> + </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
+        //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n      <mo> - </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n  <mo> + </mo>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
         //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 3 </mn>\n  <mo> &#x00B7; <!-- middle dot --> </mo>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <msup>\n    <mrow>\n      <mi> e </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </msup>\n</math>\n"
-        "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n</math>\n"
-        "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 5 </mn>\n  <mi> x </mi>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n  <mi> x </mi>\n  <mo> - </mo>\n  <mn> 2 </mn>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <mn> 7 </mn>\n</math>\n"
-        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>-</mo><mn>3</mn><mo>-</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>-</mo><mi>b</mi>\n </mrow> \n</math>"; 
-        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow><mi>x</mi><mo>-</mo><mi>y</mi> </mrow> </mstyle>\n</math>"
+        // "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n</math>\n"
+        // "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 5 </mn>\n  <mi> x </mi>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n  <mi> x </mi>\n  <mo> - </mo>\n  <mn> 2 </mn>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <mn> 7 </mn>\n</math>\n"
+        // "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>-</mo><mn>3</mn><mo>-</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>-</mo><mi>b</mi>\n </mrow> \n</math>"; 
+        // "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow><mi>x</mi><mo>-</mo><mi>y</mi> </mrow> </mstyle>\n</math>"
     ]
 
     let results = List.map term mathMLStrings
