@@ -18,3 +18,12 @@ let rec intersperse (elem: 'T) (lst: 'T list) =
     | [] -> []
     | [x] -> [x]
     | x::xs -> x::elem::(intersperse elem xs)
+
+let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
+    let rec splitUtil acc lst =
+        let beforePredicate = List.takeWhile (predicate >> not) lst
+        let afterPredicate = List.skip beforePredicate.Length lst
+        match afterPredicate with
+        | x::rest when predicate x -> splitUtil (beforePredicate::acc) rest // x is the element to split with
+        | _ -> beforePredicate::acc
+    List.rev <| splitUtil [] lst

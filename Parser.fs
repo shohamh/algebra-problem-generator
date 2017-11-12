@@ -7,6 +7,7 @@ open NUnit.Framework
 open FsUnit
 open Utils
 open System.Runtime.InteropServices.ComTypes
+open Microsoft.Win32.SafeHandles
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -39,6 +40,12 @@ let (<!>) (p: Parser<'a, 'b>) label =
 let pstr s = spaces >>. pstringCI s .>> spaces
 let sstr s = spaces >>. skipStringCI s .>> spaces 
 
+type Operator = 
+| Plus
+| Minus
+| Multiply
+| Divide
+| Exponent
 
 type Mtag =
 | Root of Mtag
@@ -48,7 +55,7 @@ type Mtag =
 | Row of Mtag list
 | Fenced of Mtag  // parentheses are a fencing of a mrow element or of a single other element
 | Identifier of string
-| Operator of string
+| Operator of Operator
 | Number of float
 | Term of Term //TODO: fix ugly hack when you have brain, not like 2am me
 
@@ -65,8 +72,16 @@ let identifier = identifier(IdentifierOptions())
 
 let pMi        = pTag "mi" (identifier |>> Mtag.Identifier) <!> "pMi"
 
-let operatorParsers = [pstr "+"; pstr "-"; pstr "*"; pstr "/"; pstr "^"]
-let pMo        = pTag "mo" (choice operatorParsers |>> Mtag.Operator) <!> "pMo"
+
+let plusOperatorParser = choice [pstr "+"] |>> (fun _ -> Mtag.Operator Plus)
+let minusOperatorParser = choice [pstr "-"] |>> (fun _ -> Mtag.Operator Minus)
+let multiplyOperatorParser = choice [pstr "*"; pstr "&#x00B7; <!-- middle dot -->"] |>> (fun _ -> Mtag.Operator Multiply)
+let divideOperatorParser = choice [pstr "/"] |>> (fun _ -> Mtag.Operator Divide)
+let exponentOperatorParser = choice [pstr "^"] |>> (fun _ -> Mtag.Operator Exponent)
+
+let operatorParsers = [plusOperatorParser; minusOperatorParser; multiplyOperatorParser; divideOperatorParser; exponentOperatorParser]
+
+let pMo        = pTag "mo" (choice operatorParsers) <!> "pMo"
 let pMn        = pTag "mn" (pfloat |>> Mtag.Number) <!> "pMn"
 
 let pMathTag p = pTag "math" p <!> "pMathTag"
@@ -79,81 +94,71 @@ let pMstyle, pMstyleRef = createParserForwardedToRef()
 
 let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn]
 
-do pMrowRef := pTag "mrow" (many pMtag) |>> Mtag.Row <!> "pMrow"
-do pMfencedRef := pTag "mfenced" (pMrow) |>> Mtag.Fenced <!> "pMfenced"
-do pMsupRef := pTag "msup" (tuple2 pMtag pMtag) |>> Mtag.Sup <!> "pMsup"
+do pMrowRef := pTag "mrow" (many pMtag) |>> Row <!> "pMrow"
+do pMfencedRef := pTag "mfenced" (pMrow) |>> Fenced <!> "pMfenced"
+do pMsupRef := pTag "msup" (tuple2 pMtag pMtag) |>> Sup <!> "pMsup"
 do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
 
-let pMathML    = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
+let pMathML = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
 
-let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
-    let rec splitUtil acc lst =
-        let beforePredicate = List.takeWhile (predicate >> not) lst
-        let afterPredicate = List.skip beforePredicate.Length lst
-        match afterPredicate with
-        | x::rest when predicate x -> splitUtil (beforePredicate::acc) rest // x is the element to split with
-        | _ -> beforePredicate::acc
-    List.rev <| splitUtil [] lst
 
 let rec mtagToTerm (mtag : Mtag) : Term =
     match mtag with
     | Root mtag -> mtagToTerm mtag
     | Fraction (numerator, denominator) -> Term.BinaryTerm (mtagToTerm numerator, BinaryOp.Divide, mtagToTerm denominator)
-    | Sub (above, below) -> mtagToTerm above//TODO: what even is this
+    | Sub (above, below) -> mtagToTerm above //TODO: what even is this
     | Sup (base_, exponent) -> Term.BinaryTerm (mtagToTerm base_, BinaryOp.Exponent, mtagToTerm exponent)
     | Fenced mt -> mtagToTerm mt //TODO: is this ok?
+    // | Row mtagList when List.isEmpty mtagList -> 
+    //     printfn "error"
+    //     Term.TConstant (Real 0.0)
     | Row mtagList when List.length mtagList = 1 -> 
         mtagToTerm <| List.item 0 mtagList
     | Row mtagList ->
-        let splitByPlusMinus = split (fun x -> x = Operator "+" || x = Operator "-") mtagList
+        let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) mtagList
         if List.length splitByPlusMinus > 1 then
             // gets an Mtag list of small expressions separated by plus & minus.
             // returns an Mtag list list, of lists of small expressions separated by Operator "+" (not included),
             // will negate relevant terms
             // then we List.concat (intersperse (Operator "+") lst)
-            let rec negateRelevantParts (expression : Mtag list) (negateNext : bool) : Mtag list =
-                let splitByPlusMinus = split (fun x -> x = Operator "+" || x = Operator "-") expression
+            let rec negateRelevantParts (expression : Mtag list) (negFirstElem : bool) : Mtag list =
+                let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) expression
                 match splitByPlusMinus with
                 | [] -> []
                 | [x] -> x
                 | x::xs -> 
                     let fixedX =
-                        match negateNext with
-                        | true -> negate x
-                        | false -> Mtag.Row x
-                    match List.item (List.length x) expression with
-                    | Operator "-" ->
-                        fixedX :: Operator "+" :: (negateRelevantParts (List.skip (List.length x + 1) expression) true)
-                    | Operator op ->
-                        fixedX :: Operator op :: (negateRelevantParts (List.skip (List.length x + 1) expression) false)
+                        match negFirstElem with
+                        | true -> [negate x]
+                        | false -> x
+                    // if the operator after `x` is a minus, we'll negate the next section after it (calling recursively)
+                    fixedX @ Operator Plus :: (negateRelevantParts (List.skip (List.length x + 1) expression) ((List.item (List.length x) expression) = Operator Minus))
 
             let noMinuses = negateRelevantParts mtagList false
-            let lst = split (fun x -> x = Operator "+") noMinuses
+            let lst = split ((=) <| Operator Plus) noMinuses
             Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> mtagToTerm) lst)
             
         else
             // no pluses or minuses in the expression
-            let splitByMultiplyDivide = split (fun x -> x = Operator "*" || x = Operator "/") mtagList
+            let splitByMultiplyDivide = split (fun x -> x = Operator Multiply || x = Operator Divide) mtagList
             if List.length splitByMultiplyDivide > 1 then
                 // there are multiply and divide in the expression
                 let rec f lst =
-                    let opIndex = List.tryFindIndexBack (fun x -> x = Operator "*" || x = Operator "/") lst
+                    let opIndex = List.tryFindIndexBack (fun x -> x = Operator Multiply || x = Operator Divide) lst
                     match opIndex with
                     | Some index ->
                         match List.item index lst with
-                        | Operator "*" ->
+                        | Operator Multiply ->
                             // keep looking for *
-                            let notMultiplyIndex = List.tryFindIndexBack (fun x -> x = Operator "/") lst
+                            let notMultiplyIndex = List.tryFindIndexBack ((=) <| Operator Divide) lst
                             match notMultiplyIndex with
                             | Some ind -> 
                                 let x, y = List.splitAt ind lst
-                                Term.BinaryTerm (Term.AssociativeTerm(Multiply, List.rev (List.map mtagToTerm x)), Divide, f y) 
+                                Term.BinaryTerm (Term.AssociativeTerm(AssociativeOp.Multiply, List.rev (List.map mtagToTerm x)), BinaryOp.Divide, f y) 
                             | None ->
-                                let operands = split (fun x -> x = Operator "*") lst
-                                // TODO: prove that there has to be one operand in each sublist from split,
-                                //       maybe switch to Mtag.Row'ing them and deal with it in the other match case for Mtag.Row (len 1)
-                                Term.AssociativeTerm(Multiply, List.map (List.item 0 >> mtagToTerm) operands)
-                        | Operator "/" ->
+                                let operands = split ((=) <| Operator Multiply) lst
+                                Term.AssociativeTerm(AssociativeOp.Multiply, List.map (Mtag.Row >> mtagToTerm) operands)
+                        | Operator Divide ->
                             let beforeDivide, afterDivide = List.splitAt index lst
                             let afterDivideWithoutOp = List.skip 1 afterDivide
                             Term.BinaryTerm (mtagToTerm (Mtag.Row beforeDivide), BinaryOp.Divide, f afterDivideWithoutOp)
@@ -168,14 +173,14 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                 let lst = List.item 0 splitByMultiplyDivide 
                 match lst with
                 | [x] -> mtagToTerm x
-                | _ -> mtagToTerm (Mtag.Row <| intersperse (Operator "*") lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
+                | _ -> mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
             
                 
         
     | Identifier str -> Term.TVariable str
     | Operator str ->
         printfn "shouldn't happen, operator str"
-        Term.TVariable str
+        Term.TVariable "Operator"
     | Number num -> 
         let constant = 
             if num = infinity then
@@ -209,7 +214,7 @@ let rec termToMtag (term : Term) =
     | UnaryTerm (uop, t1) ->
         match uop with
         | Negative ->
-            Mtag.Row [Mtag.Operator "-"; termToMtag t1]
+            Mtag.Row [Mtag.Operator Minus; termToMtag t1]
         // | NaturalLog ->
         // | Sqrt ->
         // | Square ->
@@ -218,17 +223,17 @@ let rec termToMtag (term : Term) =
     | BinaryTerm (t1, bop, t2) ->
         match bop with
         | BinaryOp.Multiply ->
-            Mtag.Row [termToMtag t1; Mtag.Operator "*"; termToMtag t2]
-        | Divide -> // TODO: Fraction
-            Mtag.Row [termToMtag t1; Mtag.Operator "/"; termToMtag t2]
-        | Exponent -> //TODO: sup (super, above)
-            Mtag.Row [termToMtag t1; Mtag.Operator "^"; termToMtag t2]
+            Mtag.Row [termToMtag t1; Mtag.Operator Multiply; termToMtag t2]
+        | BinaryOp.Divide -> // TODO: Fraction
+            Mtag.Row [termToMtag t1; Mtag.Operator Divide; termToMtag t2]
+        | BinaryOp.Exponent -> //TODO: sup (super, above)
+            Mtag.Row [termToMtag t1; Mtag.Operator Exponent; termToMtag t2]
     | AssociativeTerm (aop, termList) ->
         match aop with
-        | Plus ->
-            Mtag.Row <| Utils.intersperse (Mtag.Operator "+") (List.map termToMtag termList)
-        | Multiply ->
-            Mtag.Row <| Utils.intersperse (Mtag.Operator "*") (List.map termToMtag termList)
+        | AssociativeOp.Plus ->
+            Mtag.Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtag termList)
+        | AssociativeOp.Multiply ->
+            Mtag.Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtag termList)
     | _ ->
         Mtag.Number 0.0
 
@@ -250,6 +255,8 @@ let tests =
     printfn "----------------------------\n"
 
     let mathMLStrings = [
+        "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 3 </mn>\n  <mo> &#x00B7; <!-- middle dot --> </mo>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <msup>\n    <mrow>\n      <mi> e </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </msup>\n</math>\n"
+        "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n</math>\n"
         "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 5 </mn>\n  <mi> x </mi>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n  <mi> x </mi>\n  <mo> - </mo>\n  <mn> 2 </mn>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <mn> 7 </mn>\n</math>\n"
         "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mrow>  <mn>2</mn><mi>z</mi><mi> r </mi><mo>-</mo><mn>3</mn><mo>-</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>/</mo><mi>b</mi><mo>-</mo><mi>b</mi>\n </mrow> \n</math>"; 
         "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n  <mrow><mi>x</mi><mo>-</mo><mi>y</mi> </mrow> </mstyle>\n</math>"
