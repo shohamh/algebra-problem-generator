@@ -57,5 +57,6 @@ let rec build (root:Term) (constraints:Constraint list) : QTerm =
         QLimit (var, build term1 [Free], build term2 [Free])
     | Ncr (term1, term2)->
         QNcr (build term1 [Free], build term2 [Free])
-
+    | TFenced t ->
+        build t [Free]
         

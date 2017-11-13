@@ -121,7 +121,7 @@ type Term =
 | Ncr of Term * Term // "term" choose "term" (n above r)
 //| Matrix of (Term * int * int) list // list of terms with index pair TODO: better representation of matrix
 //| Determinant of Term // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
-
+| TFenced of Term // Parentheses
 
 type Domain = Constant * Constant
 

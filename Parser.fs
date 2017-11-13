@@ -108,7 +108,7 @@ let rec mtagToTerm (mtag : Mtag) : Term =
     | Fraction (numerator, denominator) -> Term.BinaryTerm (mtagToTerm numerator, BinaryOp.Divide, mtagToTerm denominator)
     | Sub (above, below) -> mtagToTerm above //TODO: what even is this
     | Sup (base_, exponent) -> Term.BinaryTerm (mtagToTerm base_, BinaryOp.Exponent, mtagToTerm exponent)
-    | Fenced mt -> mtagToTerm mt //TODO: is this ok?
+    | Fenced mt -> Term.TFenced <| mtagToTerm mt //TODO: is this ok?
     // | Row mtagList when List.isEmpty mtagList -> 
     //     printfn "error"
     //     Term.TConstant (Real 0.0)
@@ -228,20 +228,52 @@ let rec termToMtag (term : Term) =
         | BinaryOp.Multiply ->
             Mtag.Row [termToMtag t1; Mtag.Operator Multiply; termToMtag t2]
         | BinaryOp.Divide -> // TODO: Fraction
-            Mtag.Row [termToMtag t1; Mtag.Operator Divide; termToMtag t2]
+            Mtag.Fraction (termToMtag t1, termToMtag t2)
         | BinaryOp.Exponent -> //TODO: sup (super, above)
-            Mtag.Row [termToMtag t1; Mtag.Operator Exponent; termToMtag t2]
+            Mtag.Sup (termToMtag t1, termToMtag t2)
     | AssociativeTerm (aop, termList) ->
         match aop with
         | AssociativeOp.Plus ->
             Mtag.Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtag termList)
         | AssociativeOp.Multiply ->
             Mtag.Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtag termList)
+    | TFenced term ->
+        Mtag.Fenced <| termToMtag term
     | _ ->
-        Mtag.Number 0.0
+        Mtag.Number 999999999999999.0
 
-let mtagToMathML (mtag : Mtag) =
-    ""
+let mathMLtag tag insides =
+    "<" + tag + ">" + insides + "</" + tag + ">"
+
+let rec mtagToMathML (mtag : Mtag) =
+    match mtag with
+    | Identifier str ->
+        mathMLtag "mi" str
+    | Operator op ->
+        let strOp = 
+            match op with
+            | Plus -> "+"
+            | Minus -> "-"
+            | Multiply -> "*" //TODO: middle-dot?
+            | Divide -> "/"
+            | Exponent -> "^"
+        mathMLtag "mo" strOp
+    | Number f ->
+        mathMLtag "mn" (string f)
+    | Fraction (x, y) ->
+        mathMLtag "mfrac" (mtagToMathML x + mtagToMathML y)
+    | Fenced mt ->
+        mathMLtag "mfenced" (mtagToMathML mt)
+    | Root mt ->
+        "<math xmlns='http://www.w3.org/1998/Math/MathML'>" + (mtagToMathML mt) + "</math>"
+    | Row mtList ->
+        mathMLtag "mrow" <| List.fold (+) "" (List.map mtagToMathML mtList)
+    | Sub (above, below) ->
+        mathMLtag "msub" (mtagToMathML above + mtagToMathML below)
+    | Sup (base_, exponent) ->
+        mathMLtag "msup" (mtagToMathML base_ + mtagToMathML exponent)
+    | Term term ->
+        mtagToMathML <| termToMtag term
 
 let term (mathML : string) =
     let parsedResult = test pMathML mathML
@@ -258,6 +290,7 @@ let tests =
     printfn "----------------------------\n"
 
     let mathMLStrings = [
+        //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mi> x </mi>\n  <mo> + </mo>\n  <mn> 3 </mn>\n  <mo> - </mo>\n  <mn> 7 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n  <mo> + </mo>\n  <mn> 6 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n</math>\n"
         "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <msup>\n        <mrow>\n          <mfenced>\n            <mrow>\n              <msup>\n                <mrow>\n                  <mi> y </mi>\n                </mrow>\n                <mrow>\n                  <mn> 2 </mn>\n                </mrow>\n              </msup>\n              <mo> + </mo>\n              <mn> 3 </mn>\n            </mrow>\n          </mfenced>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </mfenced>\n  <mo> - </mo>\n  <mn> 7 </mn>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> + </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
         //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n      <mo> - </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n  <mo> + </mo>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
         //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 3 </mn>\n  <mo> &#x00B7; <!-- middle dot --> </mo>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <msup>\n    <mrow>\n      <mi> e </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </msup>\n</math>\n"
@@ -272,6 +305,8 @@ let tests =
     List.map (printfn "Parsed Term: %A") results
     let mtags = List.map (Option.map termToMtag) results
     List.map (printfn "To Mtag: %A") mtags
+    let mathmls = List.map (Option.map mtagToMathML) mtags
+    List.map (printfn "To MathML: %A") mathmls
 
     printfn "\n----------------------------\n\n"
     results
