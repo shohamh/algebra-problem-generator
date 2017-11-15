@@ -23,7 +23,7 @@ let test p str =
         None
 
 
-let debug = false
+let debug = true
 
 // Debug trace thing
 let (<!>) (p: Parser<'a, 'b>) label =
@@ -90,14 +90,15 @@ let pMrow, pMrowRef = createParserForwardedToRef()
 let pMfenced, pMfencedRef = createParserForwardedToRef()
 let pMsup, pMsupRef = createParserForwardedToRef()
 let pMstyle, pMstyleRef = createParserForwardedToRef()
+let pMfrac, pMfracRef = createParserForwardedToRef()
 
-
-let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn]
+let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn; pMfrac]
 
 do pMrowRef := pTag "mrow" (many pMtag) |>> Row <!> "pMrow"
 do pMfencedRef := pTag "mfenced" (pMrow) |>> Fenced <!> "pMfenced"
 do pMsupRef := pTag "msup" (tuple2 pMtag pMtag) |>> Sup <!> "pMsup"
 do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
+do pMfracRef := pTag "mfrac" (tuple2 pMtag pMtag) |>> Fraction <!> "pMfrac"
 
 let pMathML = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
 
