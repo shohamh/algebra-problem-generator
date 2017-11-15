@@ -8,6 +8,7 @@ open FsUnit
 open Utils
 open System.Runtime.InteropServices.ComTypes
 open Microsoft.Win32.SafeHandles
+open System
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -57,6 +58,7 @@ type Mtag =
 | Identifier of string
 | Operator of Operator
 | Number of float
+| Sqrt of Mtag
 | Term of Term //TODO: fix ugly hack when you have brain, not like 2am me
 
 // BTag = Begin Tag
@@ -91,14 +93,17 @@ let pMfenced, pMfencedRef = createParserForwardedToRef()
 let pMsup, pMsupRef = createParserForwardedToRef()
 let pMstyle, pMstyleRef = createParserForwardedToRef()
 let pMfrac, pMfracRef = createParserForwardedToRef()
+let pMsqrt, pMsqrtRef = createParserForwardedToRef()
 
-let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn; pMfrac]
+
+let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn; pMfrac; pMsqrt]
 
 do pMrowRef := pTag "mrow" (many pMtag) |>> Row <!> "pMrow"
 do pMfencedRef := pTag "mfenced" (pMrow) |>> Fenced <!> "pMfenced"
 do pMsupRef := pTag "msup" (tuple2 pMtag pMtag) |>> Sup <!> "pMsup"
 do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
 do pMfracRef := pTag "mfrac" (tuple2 pMtag pMtag) |>> Fraction <!> "pMfrac"
+do pMsqrtRef := pTag "msqrt" pMtag |>> Sqrt <!> "pMsqrt"
 
 let pMathML = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
 
@@ -194,6 +199,8 @@ let rec mtagToTerm (mtag : Mtag) : Term =
             else
                 Constant.Real num
         Term.TConstant constant
+    | Sqrt arg ->
+        Term.UnaryTerm (UnaryOp.Sqrt, mtagToTerm arg)
     | Term t -> t
 and negate (mt : Mtag list) : Mtag =
     match mt with
@@ -221,7 +228,8 @@ let termToMtag (term : Term) =
             | Negative ->
                 Mtag.Row [Mtag.Operator Minus; termToMtagRec t1]
             // | NaturalLog ->
-            // | Sqrt ->
+            | UnaryOp.Sqrt ->
+                Mtag.Sqrt <| termToMtagRec t1
             // | Square ->
             // | Trig tr ->
             // | InvTrig it ->
@@ -275,6 +283,8 @@ let rec mtagToMathML (mtag : Mtag) =
         mathMLtag "msub" (mtagToMathML above + mtagToMathML below)
     | Sup (base_, exponent) ->
         mathMLtag "msup" (mtagToMathML base_ + mtagToMathML exponent)
+    | Sqrt (arg) ->
+        mathMLtag "msqrt" (mtagToMathML arg)
     | Term term ->
         mtagToMathML <| termToMtag term
 
