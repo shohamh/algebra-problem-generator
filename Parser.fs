@@ -24,7 +24,7 @@ let test p str =
         None
 
 
-let debug = true
+let debug = false
 
 // Debug trace thing
 let (<!>) (p: Parser<'a, 'b>) label =
