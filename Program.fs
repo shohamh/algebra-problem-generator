@@ -15,9 +15,9 @@ let mathMLStrings = [
 
 let generateSimilarTerm (term : Term) =
     let qterm = QueryBuilder.build term [Constraint.Free]
-    printfn "QueryBuilder QTerm: %A\n" qterm
+    // printfn "QueryBuilder QTerm: %A\n" qterm
     let term2 = QueryExecutor.executeTerm qterm
-    printfn "QueryExecutor Generated Term: %A\n" term2
+    // printfn "QueryExecutor Generated Term: %A\n" term2
 
     term2
 
@@ -29,6 +29,18 @@ let generateSimilarTermFromMathML (mathML : string) =
     | None ->
         None
 
+let generateSimilarMathMLFromMathML (mathML : string) : string =
+    let termOption = generateSimilarTermFromMathML mathML
+    let mtag = Option.map termToMtag termOption
+    let outputMML = Option.map mtagToMathML mtag
+    match outputMML with
+    | Some mml ->
+        mml
+    | None ->
+        ""
+
+
+
 [<EntryPoint>]
 let main argv =
     // printfn "hi"
@@ -36,12 +48,12 @@ let main argv =
     // printfn "bye"
     
     // let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
-    
-    let requestedTerms = 
-        if List.length (Array.toList argv) > 0 then
-            List.map generateSimilarTermFromMathML (Array.toList argv)
-        else
-            List.empty
+    printfn "%s" (generateSimilarMathMLFromMathML (List.item 0 <| Array.toList argv))
+    // let requestedTerms = 
+    //     if List.length (Array.toList argv) > 0 then
+    //         List.map generateSimilarMathMLFromMathML (Array.toList argv)
+    //     else
+    //         List.empty
 
 
     // let total = testedTerms @ requestedTerms

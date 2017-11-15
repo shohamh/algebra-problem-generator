@@ -3,12 +3,10 @@
 open AlgebraProblemGenerator
 
 let rec build (root:Term) (constraints:Constraint list) : QTerm = 
-    printfn "build"
     match root with
     | TConstant constant ->
         match constant with
         | Real _ ->
-            printfn "real"
             match constraints.Head with
             | Free -> 
                 QConstant <| ChoiceC (0, [(NegativeInfinity,Infinity)])

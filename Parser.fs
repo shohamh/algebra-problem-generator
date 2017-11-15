@@ -16,14 +16,14 @@ let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle
 let test p str =
     match run p str with
     | Success(result, _, _) ->
-        printfn "Parse MathML\n==============\n Success: %A\n==============\n" result
+        // printfn "Parse MathML\n==============\n Success: %A\n==============\n" result
         Some result                        
     | Failure(errorMsg, _, _) -> 
-        printfn "Parse MathML\n==============\n Failure: %A\n==============\n" errorMsg
+        // printfn "Parse MathML\n==============\n Failure: %A\n==============\n" errorMsg
         None
 
 
-let debug = true
+let debug = false
 
 // Debug trace thing
 let (<!>) (p: Parser<'a, 'b>) label =
@@ -206,41 +206,43 @@ and negate (mt : Mtag list) : Mtag =
 
 
 
-let rec termToMtag (term : Term) =
-    match term with
-    | TConstant tc ->
-        match tc with
-        | Infinity -> Mtag.Number System.Double.PositiveInfinity // TODO: verify infinities work like that in mathml
-        | NegativeInfinity -> Mtag.Number System.Double.NegativeInfinity
-        | Real r -> Mtag.Number r
-    | TVariable var -> Mtag.Identifier var
-    | UnaryTerm (uop, t1) ->
-        match uop with
-        | Negative ->
-            Mtag.Row [Mtag.Operator Minus; termToMtag t1]
-        // | NaturalLog ->
-        // | Sqrt ->
-        // | Square ->
-        // | Trig tr ->
-        // | InvTrig it ->
-    | BinaryTerm (t1, bop, t2) ->
-        match bop with
-        | BinaryOp.Multiply ->
-            Mtag.Row [termToMtag t1; Mtag.Operator Multiply; termToMtag t2]
-        | BinaryOp.Divide -> // TODO: Fraction
-            Mtag.Fraction (termToMtag t1, termToMtag t2)
-        | BinaryOp.Exponent -> //TODO: sup (super, above)
-            Mtag.Sup (termToMtag t1, termToMtag t2)
-    | AssociativeTerm (aop, termList) ->
-        match aop with
-        | AssociativeOp.Plus ->
-            Mtag.Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtag termList)
-        | AssociativeOp.Multiply ->
-            Mtag.Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtag termList)
-    | TFenced term ->
-        Mtag.Fenced <| termToMtag term
-    | _ ->
-        Mtag.Number 999999999999999.0
+let termToMtag (term : Term) =
+    let rec termToMtagRec (term : Term) =
+        match term with
+        | TConstant tc ->
+            match tc with
+            | Infinity -> Mtag.Number System.Double.PositiveInfinity // TODO: verify infinities work like that in mathml
+            | NegativeInfinity -> Mtag.Number System.Double.NegativeInfinity
+            | Real r -> Mtag.Number r
+        | TVariable var -> Mtag.Identifier var
+        | UnaryTerm (uop, t1) ->
+            match uop with
+            | Negative ->
+                Mtag.Row [Mtag.Operator Minus; termToMtagRec t1]
+            // | NaturalLog ->
+            // | Sqrt ->
+            // | Square ->
+            // | Trig tr ->
+            // | InvTrig it ->
+        | BinaryTerm (t1, bop, t2) ->
+            match bop with
+            | BinaryOp.Multiply ->
+                Mtag.Row [termToMtagRec t1; Mtag.Operator Multiply; termToMtagRec t2]
+            | BinaryOp.Divide -> // TODO: Fraction
+                Mtag.Fraction (termToMtagRec t1, termToMtagRec t2)
+            | BinaryOp.Exponent -> //TODO: sup (super, above)
+                Mtag.Sup (termToMtagRec t1, termToMtagRec t2)
+        | AssociativeTerm (aop, termList) ->
+            match aop with
+            | AssociativeOp.Plus ->
+                Mtag.Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtagRec termList)
+            | AssociativeOp.Multiply ->
+                Mtag.Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtagRec termList)
+        | TFenced term ->
+            Mtag.Fenced <| termToMtagRec term
+        | _ ->
+            Mtag.Number 999999999999999.0
+    Mtag.Root <| termToMtagRec term
 
 let mathMLtag tag insides =
     "<" + tag + ">" + insides + "</" + tag + ">"
@@ -284,14 +286,13 @@ let term (mathML : string) =
         None
 
 
-let tests =
-    printfn "bb"
-    printfn "Parser tests:"
-    printfn "----------------------------\n"
+let parserTests =
+    // printfn "Parser tests:"
+    // printfn "----------------------------\n"
 
     let mathMLStrings = [
         //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mi> x </mi>\n  <mo> + </mo>\n  <mn> 3 </mn>\n  <mo> - </mo>\n  <mn> 7 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n  <mo> + </mo>\n  <mn> 6 </mn>\n  <mo> - </mo>\n  <mn> 4 </mn>\n</math>\n"
-        "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <msup>\n        <mrow>\n          <mfenced>\n            <mrow>\n              <msup>\n                <mrow>\n                  <mi> y </mi>\n                </mrow>\n                <mrow>\n                  <mn> 2 </mn>\n                </mrow>\n              </msup>\n              <mo> + </mo>\n              <mn> 3 </mn>\n            </mrow>\n          </mfenced>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </mfenced>\n  <mo> - </mo>\n  <mn> 7 </mn>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> + </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
+        // "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <msup>\n        <mrow>\n          <mfenced>\n            <mrow>\n              <msup>\n                <mrow>\n                  <mi> y </mi>\n                </mrow>\n                <mrow>\n                  <mn> 2 </mn>\n                </mrow>\n              </msup>\n              <mo> + </mo>\n              <mn> 3 </mn>\n            </mrow>\n          </mfenced>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </mfenced>\n  <mo> - </mo>\n  <mn> 7 </mn>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> + </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
         //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mfenced>\n    <mrow>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n      <mo> - </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n  <mo> + </mo>\n  <mfenced>\n    <mrow>\n      <mi> x </mi>\n      <mo> - </mo>\n      <mn> 3 </mn>\n    </mrow>\n  </mfenced>\n</math>\n"
         //"<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <mn> 3 </mn>\n  <mo> &#x00B7; <!-- middle dot --> </mo>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <mo> + </mo>\n  <msup>\n    <mrow>\n      <mi> e </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n      <msup>\n        <mrow>\n          <mi> x </mi>\n        </mrow>\n        <mrow>\n          <mn> 2 </mn>\n        </mrow>\n      </msup>\n    </mrow>\n  </msup>\n</math>\n"
         // "<math xmlns='http://www.w3.org/1998/Math/MathML'>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 2 </mn>\n    </mrow>\n  </msup>\n  <mo> + </mo>\n  <mn> 7 </mn>\n  <msup>\n    <mrow>\n      <mi> x </mi>\n    </mrow>\n    <mrow>\n      <mn> 3 </mn>\n    </mrow>\n  </msup>\n  <mo> - </mo>\n  <mn> 3 </mn>\n</math>\n"
@@ -308,5 +309,5 @@ let tests =
     let mathmls = List.map (Option.map mtagToMathML) mtags
     List.map (printfn "To MathML: %A") mathmls
 
-    printfn "\n----------------------------\n\n"
+    // printfn "\n----------------------------\n\n"
     results
