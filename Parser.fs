@@ -103,7 +103,7 @@ do pMfencedRef := pTag "mfenced" (pMrow) |>> Fenced <!> "pMfenced"
 do pMsupRef := pTag "msup" (tuple2 pMtag pMtag) |>> Sup <!> "pMsup"
 do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
 do pMfracRef := pTag "mfrac" (tuple2 pMtag pMtag) |>> Fraction <!> "pMfrac"
-do pMsqrtRef := pTag "msqrt" pMtag |>> Sqrt <!> "pMsqrt"
+do pMsqrtRef := pTag "msqrt" (many pMtag) |>> (Row >> Sqrt) <!> "pMsqrt"
 
 let pMathML = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
 
