@@ -20,8 +20,10 @@ let rec build (root:Term) (constraints:Constraint list) : QTerm =
     | TVariable var -> QVariable var
     | UnaryTerm (op,term) ->
         match op with
-        | Negative | NaturalLog | Sqrt | Square ->
+        | Negative | NaturalLog | Sqrt ->
             QUnaryTerm (JustU op, build term [Free]) 
+        | Log base_ ->
+            QUnaryTerm (JustU (Log base_), build term [Free])
         | Trig _ ->
             let qop = ChoiceU (0, List.map Trig [Sin; Cos; Tan; Cot; Sec; Csc])
             QUnaryTerm (qop,build term [Free])

@@ -82,10 +82,28 @@ type InvTrig =
 | Arcsec
 | Arccsc
 
+let trigToStr trig =
+    match trig with
+    | Sin -> "sin"
+    | Cos -> "cos"
+    | Tan -> "tan"
+    | Cot -> "cot"
+    | Sec -> "sec"
+    | Csc -> "csc"
+
+let invTrigToStr invTrig =
+    match invTrig with
+    | Arcsin -> "asin"
+    | Arccos -> "acos"
+    | Arctan -> "atan"
+    | Arccot -> "acot"
+    | Arcsec -> "asec"
+    | Arccsc -> "acsc"
+
 type UnaryOp =
 | Negative
-| Square
 | NaturalLog
+| Log of Constant // base
 | Sqrt
 | Trig of Trig
 | InvTrig of InvTrig

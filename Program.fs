@@ -48,7 +48,11 @@ let main argv =
     // printfn "bye"
     
     // let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
-    printfn "%s" (generateSimilarMathMLFromMathML (List.item 0 <| Array.toList argv))
+    if not (List.isEmpty (Array.toList argv)) then
+        let argument = List.item 0 <| Array.toList argv
+        printfn "%s" (generateSimilarMathMLFromMathML argument)
+    else
+        printfn "add MathML argument in argv"
     // let requestedTerms = 
     //     if List.length (Array.toList argv) > 0 then
     //         List.map generateSimilarMathMLFromMathML (Array.toList argv)

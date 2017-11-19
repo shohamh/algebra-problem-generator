@@ -24,15 +24,24 @@ let test p str =
         None
 
 
-let debug = false
+let debug = true
+let mutable debugIndent = 0
+
+let indentSpaces number =
+    String.replicate number " "
+
+let indent = indentSpaces debugIndent
 
 // Debug trace thing
 let (<!>) (p: Parser<'a, 'b>) label =
     if debug then
         fun (stream : CharStream<'b>) ->
-            printfn "%A: Entering %s with input: %s" stream.Position label (stream.PeekString 1000) 
+            printfn ""
+            debugIndent <- debugIndent + 4
+            printfn "%s %A: Entering %s with input: %s" (indentSpaces debugIndent) stream.Position label (stream.PeekString 1000) 
             let reply = p stream
-            printfn "%A: Leaving %s (%A)" stream.Position label reply.Status
+            printfn "%s %A: Leaving %s (%A)" (indentSpaces debugIndent) stream.Position label reply.Status
+            debugIndent <- debugIndent - 4
             reply
     else
         p
@@ -47,12 +56,13 @@ type Operator =
 | Multiply
 | Divide
 | Exponent
+| Equals
 
 type Mtag =
 | Root of Mtag
 | Fraction of Mtag * Mtag
 | Sup of Mtag * Mtag  // power/exponent
-| Sub of Mtag * Mtag
+| Sub of Mtag * Mtag  // good for things like log base 10 of whatever
 | Row of Mtag list
 | Fenced of Mtag  // parentheses are a fencing of a mrow element or of a single other element
 | Identifier of string
@@ -72,7 +82,15 @@ let pTag tagName p = between (pBTag tagName) (pETag tagName) p <!> "pTag"
 
 let identifier = identifier(IdentifierOptions())
 
-let pMi        = pTag "mi" (identifier |>> Mtag.Identifier) <!> "pMi"
+let mapIdentifier identifier =
+    match identifier with
+    | "log" ->
+        Mtag.Identifier "log"
+    | "ln" ->
+        Mtag.Identifier "ln"
+    | _ ->
+        Mtag.Identifier identifier
+let pMi = pTag "mi" identifier |>> mapIdentifier <!> "pMi"
 
 
 let plusOperatorParser = choice [pstr "+"] |>> (fun _ -> Mtag.Operator Plus)
@@ -80,8 +98,10 @@ let minusOperatorParser = choice [pstr "-"] |>> (fun _ -> Mtag.Operator Minus)
 let multiplyOperatorParser = choice [pstr "*"; pstr "&#x00B7; <!-- middle dot -->"] |>> (fun _ -> Mtag.Operator Multiply)
 let divideOperatorParser = choice [pstr "/"] |>> (fun _ -> Mtag.Operator Divide)
 let exponentOperatorParser = choice [pstr "^"] |>> (fun _ -> Mtag.Operator Exponent)
+let equalsOperatorParser = choice [pstr "="] |>> (fun _ -> Mtag.Operator Equals)
 
-let operatorParsers = [plusOperatorParser; minusOperatorParser; multiplyOperatorParser; divideOperatorParser; exponentOperatorParser]
+
+let operatorParsers = [plusOperatorParser; minusOperatorParser; multiplyOperatorParser; divideOperatorParser; exponentOperatorParser; equalsOperatorParser]
 
 let pMo        = pTag "mo" (choice operatorParsers) <!> "pMo"
 let pMn        = pTag "mn" (pfloat |>> Mtag.Number) <!> "pMn"
@@ -96,7 +116,7 @@ let pMfrac, pMfracRef = createParserForwardedToRef()
 let pMsqrt, pMsqrtRef = createParserForwardedToRef()
 
 
-let pMtag = choice [pMrow; pMstyle; pMsup; pMfenced; pMo; pMi; pMn; pMfrac; pMsqrt]
+let pMtag = choice [pMrow; pMo; pMi; pMn; pMfenced; pMsup; pMfrac; pMsqrt; pMstyle;]
 
 do pMrowRef := pTag "mrow" (many pMtag) |>> Row <!> "pMrow"
 do pMfencedRef := pTag "mfenced" (pMrow) |>> Fenced <!> "pMfenced"
@@ -183,10 +203,11 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                 match lst with
                 | [x] -> mtagToTerm x
                 | _ -> mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
-            
-                
-        
-    | Identifier str -> Term.TVariable str
+    | Identifier str ->
+        match str.Trim() with
+        | "sin" -> UnaryTerm (Trig Sin, TVariable "str")
+        | "&#x03C0; <!-- greek small letter pi -->" -> TConstant (Constant.Real Math.PI)
+        | _ -> Term.TVariable str
     | Operator str ->
         printfn "shouldn't happen, operator str"
         Term.TVariable "Operator"
@@ -226,32 +247,44 @@ let termToMtag (term : Term) =
         | UnaryTerm (uop, t1) ->
             match uop with
             | Negative ->
-                Mtag.Row [Mtag.Operator Minus; termToMtagRec t1]
-            // | NaturalLog ->
+                Row [Operator Minus; termToMtagRec t1]
+            | NaturalLog ->
+                Row [Identifier "ln"; termToMtagRec t1]
+            | Log base_ ->
+                Row [Sub (Identifier "log", Number (unboxConstant base_)); termToMtagRec t1]
             | UnaryOp.Sqrt ->
-                Mtag.Sqrt <| termToMtagRec t1
-            // | Square ->
-            // | Trig tr ->
-            // | InvTrig it ->
+                Sqrt <| termToMtagRec t1
+            | Trig tr ->
+                Mtag.Row [Identifier <| trigToStr tr; Mtag.Fenced (termToMtagRec t1)];
+            | InvTrig it -> // sin^-1
+                let func =
+                    match it with
+                    | Arcsin -> "sin"
+                    | Arccos -> "cos"
+                    | Arctan -> "tan"
+                    | Arccot -> "cot"
+                    | Arcsec -> "sec"
+                    | Arccsc -> "csc"
+                Row [Sup (Identifier func, Number -1.0); Mtag.Fenced (termToMtagRec t1)]
         | BinaryTerm (t1, bop, t2) ->
             match bop with
             | BinaryOp.Multiply ->
-                Mtag.Row [termToMtagRec t1; Mtag.Operator Multiply; termToMtagRec t2]
+                Row [termToMtagRec t1; Operator Multiply; termToMtagRec t2]
             | BinaryOp.Divide -> // TODO: Fraction
-                Mtag.Fraction (termToMtagRec t1, termToMtagRec t2)
+                Fraction (termToMtagRec t1, termToMtagRec t2)
             | BinaryOp.Exponent -> //TODO: sup (super, above)
-                Mtag.Sup (termToMtagRec t1, termToMtagRec t2)
+                Sup (termToMtagRec t1, termToMtagRec t2)
         | AssociativeTerm (aop, termList) ->
             match aop with
             | AssociativeOp.Plus ->
-                Mtag.Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtagRec termList)
+                Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtagRec termList)
             | AssociativeOp.Multiply ->
-                Mtag.Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtagRec termList)
+                Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtagRec termList)
         | TFenced term ->
-            Mtag.Fenced <| termToMtagRec term
+            Fenced <| termToMtagRec term
         | _ ->
-            Mtag.Number 999999999999999.0
-    Mtag.Root <| termToMtagRec term
+            Number 999999999999999.0
+    Root <| termToMtagRec term
 
 let mathMLtag tag insides =
     "<" + tag + ">" + insides + "</" + tag + ">"
@@ -268,23 +301,24 @@ let rec mtagToMathML (mtag : Mtag) =
             | Multiply -> "*" //TODO: middle-dot?
             | Divide -> "/"
             | Exponent -> "^"
+            | Equals -> "="
         mathMLtag "mo" strOp
     | Number f ->
-        mathMLtag "mn" (string f)
+        mathMLtag "mn" <| string f
     | Fraction (x, y) ->
-        mathMLtag "mfrac" (mtagToMathML x + mtagToMathML y)
+        mathMLtag "mfrac" <| mtagToMathML x + mtagToMathML y
     | Fenced mt ->
-        mathMLtag "mfenced" (mtagToMathML mt)
+        mathMLtag "mfenced" <| mtagToMathML mt
     | Root mt ->
-        "<math xmlns='http://www.w3.org/1998/Math/MathML'>" + (mtagToMathML mt) + "</math>"
+        "<math xmlns='http://www.w3.org/1998/Math/MathML'>" + mtagToMathML mt + "</math>"
     | Row mtList ->
         mathMLtag "mrow" <| List.fold (+) "" (List.map mtagToMathML mtList)
     | Sub (above, below) ->
-        mathMLtag "msub" (mtagToMathML above + mtagToMathML below)
+        mathMLtag "msub" <| mtagToMathML above + mtagToMathML below
     | Sup (base_, exponent) ->
-        mathMLtag "msup" (mtagToMathML base_ + mtagToMathML exponent)
+        mathMLtag "msup" <| mtagToMathML base_ + mtagToMathML exponent
     | Sqrt (arg) ->
-        mathMLtag "msqrt" (mtagToMathML arg)
+        mathMLtag "msqrt" <| mtagToMathML arg
     | Term term ->
         mtagToMathML <| termToMtag term
 
