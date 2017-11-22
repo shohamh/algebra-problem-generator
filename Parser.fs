@@ -2,12 +2,7 @@
 
 open FParsec
 open AlgebraProblemGenerator
-open System.Threading
-open NUnit.Framework
-open FsUnit
 open Utils
-open System.Runtime.InteropServices.ComTypes
-open Microsoft.Win32.SafeHandles
 open System
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
@@ -24,7 +19,7 @@ let test p str =
         None
 
 
-let debug = true
+let mutable debug = false
 let mutable debugIndent = 0
 
 let indentSpaces number =

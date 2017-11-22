@@ -50,7 +50,12 @@ let main argv =
     // let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
     if not (List.isEmpty (Array.toList argv)) then
         let argument = List.item 0 <| Array.toList argv
-        printfn "%s" (generateSimilarMathMLFromMathML argument)
+        if argument = "--debug" then
+            Parser.debug <- true
+            let argument = List.item 1 <| Array.toList argv
+            printfn "%s" (generateSimilarMathMLFromMathML argument)
+        else
+            printfn "%s" (generateSimilarMathMLFromMathML argument)
     else
         printfn "add MathML argument in argv"
     // let requestedTerms = 
