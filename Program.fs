@@ -3,6 +3,7 @@
 open System
 open AlgebraProblemGenerator
 open Parser
+open FParsec
 open QueryBuilder
 open QueryExecutor
 open Utils
@@ -46,7 +47,6 @@ let main argv =
     // printfn "hi"
     // printfn "%A" Parser.tests 
     // printfn "bye"
-    
     // let testedTerms : Term option list = List.map generateSimilarTermFromMathML mathMLStrings
     if not (List.isEmpty (Array.toList argv)) then
         let argument = List.item 0 <| Array.toList argv

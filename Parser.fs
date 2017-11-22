@@ -80,7 +80,6 @@ let pBTag tagName  = between (sstr ("<" + tagName)) (sstr ">") (manyTill (noneOf
 let pETag tagName  = between (sstr "</") (sstr ">") (pstr tagName) <!> "pETag"
 let pTag tagName p = between (pBTag tagName) (pETag tagName) p <!> "pTag"
 
-let identifier = identifier(IdentifierOptions())
 
 let mapIdentifier identifier =
     match identifier with
@@ -90,7 +89,7 @@ let mapIdentifier identifier =
         Mtag.Identifier "ln"
     | _ ->
         Mtag.Identifier identifier
-let pMi = pTag "mi" identifier |>> mapIdentifier <!> "pMi"
+let pMi = pTag "mi" (charsTillString "</mi>" false 1000) |>> mapIdentifier <!> "pMi"//(many1Chars (lower <|> upper <|> digit <|> anyOf ['-'; '<'; '>'; '&'; '#'; ';'; ' '; '!'])) |>> mapIdentifier <!> "pMi"
 
 
 let plusOperatorParser = choice [pstr "+"] |>> (fun _ -> Mtag.Operator Plus)
@@ -126,6 +125,22 @@ do pMfracRef := pTag "mfrac" (tuple2 pMtag pMtag) |>> Fraction <!> "pMfrac"
 do pMsqrtRef := pTag "msqrt" (many pMtag) |>> (Row >> Sqrt) <!> "pMsqrt"
 
 let pMathML = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
+
+let functionMap beforeParentheses : UnaryOp option = 
+    match beforeParentheses with
+    | Identifier str ->
+        match str.Trim() with
+        | "sin" -> Some <| Trig Sin
+        | "cos" -> Some <| Trig Cos
+        | "tan" -> Some <| Trig Tan
+        | "cot" -> Some <| Trig Cot
+        | "sec" -> Some <| Trig Sec
+        | "csc" -> Some <| Trig Csc
+        | _ -> None
+    | _ -> None
+    
+
+
 
 
 let rec mtagToTerm (mtag : Mtag) : Term =
@@ -199,10 +214,31 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                 f mtagList
             else
                 // no multiply or divide (or multiply or divide) in the expression, add multiplication between what is there (i.e. 3xy = 3*x*y)
-                let lst = List.item 0 splitByMultiplyDivide 
-                match lst with
+                match mtagList with
+                | [] -> TConstant (Real 0.0)
                 | [x] -> mtagToTerm x
-                | _ -> mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) lst) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
+                | _ ->
+                    let isFenced x =
+                        match x with
+                        | Fenced _ -> true
+                        | _ -> false
+                    let rec f mtagList =
+                        let parenIndex = List.tryFindIndex isFenced mtagList
+                        match parenIndex with
+                        | Some index when index > 0 ->
+                            let funcOpt = functionMap <| List.item (index - 1) mtagList
+                            let firstTerm =
+                                match funcOpt with
+                                | Some func ->
+                                    Term.UnaryTerm (func, mtagToTerm <| List.item index mtagList)
+                                | None ->
+                                    printfn "no such function: %A" (List.item (index - 1) mtagList)
+                                    mtagToTerm <| List.item (index - 1) mtagList
+
+                            firstTerm // TODO: TODOTOTDOTODTODTO see discord for problems with this shit (recursivity and wrongness)
+                        | _ ->
+                            mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) mtagList) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
+                    f mtagList
     | Identifier str ->
         match str.Trim() with
         | "sin" -> UnaryTerm (Trig Sin, TVariable "str")
@@ -270,9 +306,9 @@ let termToMtag (term : Term) =
             match bop with
             | BinaryOp.Multiply ->
                 Row [termToMtagRec t1; Operator Multiply; termToMtagRec t2]
-            | BinaryOp.Divide -> // TODO: Fraction
+            | BinaryOp.Divide ->
                 Fraction (termToMtagRec t1, termToMtagRec t2)
-            | BinaryOp.Exponent -> //TODO: sup (super, above)
+            | BinaryOp.Exponent -> 
                 Sup (termToMtagRec t1, termToMtagRec t2)
         | AssociativeTerm (aop, termList) ->
             match aop with
