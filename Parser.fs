@@ -19,7 +19,7 @@ let test p str =
         None
 
 
-let mutable debug = true
+let mutable debug = false
 let mutable debugIndent = 0
 
 let indentSpaces number =
