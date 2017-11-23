@@ -4,7 +4,10 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Argu" Version="3.7.0" />
     <PackageReference Include="fparsec" Version="1.0.3" />
+    <PackageReference Include="FsUnit" Version="3.0.0" />
+    <PackageReference Include="NUnit" Version="3.8.1" />
     <Compile Include="Utils.fs" />
     <Compile Include="AlgebraProblemGenerator.fs" />
     <Compile Include="Parser.fs" />
@@ -12,7 +15,6 @@
     <Compile Include="QueryEvaluator.fs" />
     <Compile Include="QueryExecutor.fs" />
     <Compile Include="Program.fs" />
-    <PackageReference Include="FsUnit" Version="3.0.0" />
-    <PackageReference Include="NUnit" Version="3.8.1" />
+
   </ItemGroup>
 </Project>
