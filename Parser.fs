@@ -19,7 +19,7 @@ let test p str =
         None
 
 
-let mutable debug = false
+let mutable debug = true
 let mutable debugIndent = 0
 
 let indentSpaces number =
@@ -151,95 +151,99 @@ let rec mtagToTerm (mtag : Mtag) : Term =
     | Row mtagList when List.length mtagList = 1 -> 
         mtagToTerm <| List.item 0 mtagList
     | Row mtagList ->
-        let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) mtagList
-        if List.length splitByPlusMinus > 1 then
-            // gets an Mtag list of small expressions separated by plus & minus.
-            // returns an Mtag list list, of lists of small expressions separated by Operator "+" (not included),
-            // will negate relevant terms
-            // then we List.concat (intersperse (Operator "+") lst)
-            let rec negateRelevantParts (expression : Mtag list) (negFirstElem : bool) : Mtag list =
-                let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) expression
-                match splitByPlusMinus with
-                | [] -> []
-                | [x] ->
-                    match negFirstElem with
-                    | true -> [negate x]
-                    | false -> x
-                | x::xs -> 
-                    let fixedX =
+        let splitByEquals = split ((=) <| Operator Equals) mtagList
+        if List.length splitByEquals > 1 then
+            Term.BinaryTerm (mtagToTerm <| Mtag.Row (List.item 0 splitByEquals), BinaryOp.Equals, mtagToTerm <| Mtag.Row (List.item 1 splitByEquals))
+        else
+            let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) mtagList
+            if List.length splitByPlusMinus > 1 then
+                // gets an Mtag list of small expressions separated by plus & minus.
+                // returns an Mtag list list, of lists of small expressions separated by Operator "+" (not included),
+                // will negate relevant terms
+                // then we List.concat (intersperse (Operator "+") lst)
+                let rec negateRelevantParts (expression : Mtag list) (negFirstElem : bool) : Mtag list =
+                    let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) expression
+                    match splitByPlusMinus with
+                    | [] -> []
+                    | [x] ->
                         match negFirstElem with
                         | true -> [negate x]
                         | false -> x
-                    // if the operator after `x` is a minus, we'll negate the next section after it (calling recursively)
-                    fixedX @ Operator Plus :: (negateRelevantParts (List.skip (List.length x + 1) expression) ((List.item (List.length x) expression) = Operator Minus))
+                    | x::xs -> 
+                        let fixedX =
+                            match negFirstElem with
+                            | true -> [negate x]
+                            | false -> x
+                        // if the operator after `x` is a minus, we'll negate the next section after it (calling recursively)
+                        fixedX @ Operator Plus :: (negateRelevantParts (List.skip (List.length x + 1) expression) ((List.item (List.length x) expression) = Operator Minus))
 
-            let noMinuses = negateRelevantParts mtagList false
-            let lst = split ((=) <| Operator Plus) noMinuses
-            Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> mtagToTerm) lst)
-            
-        else
-            // no pluses or minuses in the expression
-            let splitByMultiplyDivide = split (fun x -> x = Operator Multiply || x = Operator Divide) mtagList
-            if List.length splitByMultiplyDivide > 1 then
-                // there are multiply and divide in the expression
-                let rec f lst =
-                    let opIndex = List.tryFindIndexBack (fun x -> x = Operator Multiply || x = Operator Divide) lst
-                    match opIndex with
-                    | Some index ->
-                        match List.item index lst with
-                        | Operator Multiply ->
-                            // keep looking for *
-                            let notMultiplyIndex = List.tryFindIndexBack ((=) <| Operator Divide) lst
-                            match notMultiplyIndex with
-                            | Some ind -> 
-                                let x, y = List.splitAt ind lst
-                                Term.BinaryTerm (Term.AssociativeTerm(AssociativeOp.Multiply, List.rev (List.map mtagToTerm x)), BinaryOp.Divide, f y) 
-                            | None ->
-                                let operands = split ((=) <| Operator Multiply) lst
-                                Term.AssociativeTerm(AssociativeOp.Multiply, List.map (Mtag.Row >> mtagToTerm) operands)
-                        | Operator Divide ->
-                            let beforeDivide, afterDivide = List.splitAt index lst
-                            let afterDivideWithoutOp = List.skip 1 afterDivide
-                            Term.BinaryTerm (mtagToTerm (Mtag.Row beforeDivide), BinaryOp.Divide, f afterDivideWithoutOp)
-                        | _ ->
-                            printfn "ERROR: found unexpected operator when looking for multiplication and division"
-                            Term.TConstant(Real 999999999.9)
-                    | None ->
-                        mtagToTerm <| Mtag.Row lst
-                f mtagList
+                let noMinuses = negateRelevantParts mtagList false
+                let lst = split ((=) <| Operator Plus) noMinuses
+                Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> mtagToTerm) lst)
+                
             else
-                // no multiply or divide (or multiply or divide) in the expression, add multiplication between what is there (i.e. 3xy = 3*x*y)
-                match mtagList with
-                | [] -> TConstant (Real 0.0)
-                | [x] -> mtagToTerm x
-                | _ ->
-                    let isFenced x =
-                        match x with
-                        | Fenced _ -> true
-                        | _ -> false
-                    let rec f mtagList =
-                        let parenIndex = List.tryFindIndex isFenced mtagList
-                        match parenIndex with
-                        | Some index when index > 0 ->
-                            let funcOpt = functionMap <| List.item (index - 1) mtagList
-                            let firstTerm =
-                                match funcOpt with
-                                | Some func ->
-                                    Term.UnaryTerm (func, mtagToTerm <| List.item index mtagList)
+                // no pluses or minuses in the expression
+                let splitByMultiplyDivide = split (fun x -> x = Operator Multiply || x = Operator Divide) mtagList
+                if List.length splitByMultiplyDivide > 1 then
+                    // there are multiply and divide in the expression
+                    let rec f lst =
+                        let opIndex = List.tryFindIndexBack (fun x -> x = Operator Multiply || x = Operator Divide) lst
+                        match opIndex with
+                        | Some index ->
+                            match List.item index lst with
+                            | Operator Multiply ->
+                                // keep looking for *
+                                let notMultiplyIndex = List.tryFindIndexBack ((=) <| Operator Divide) lst
+                                match notMultiplyIndex with
+                                | Some ind -> 
+                                    let x, y = List.splitAt ind lst
+                                    Term.BinaryTerm (Term.AssociativeTerm(AssociativeOp.Multiply, List.rev (List.map mtagToTerm x)), BinaryOp.Divide, f y) 
                                 | None ->
-                                    printfn "no such function: %A" (List.item (index - 1) mtagList)
-                                    mtagToTerm <| List.item (index - 1) mtagList
-
-                            firstTerm // TODO: TODOTOTDOTODTODTO see discord for problems with this shit (recursivity and wrongness)
-                        | _ ->
-                            mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) mtagList) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
+                                    let operands = split ((=) <| Operator Multiply) lst
+                                    Term.AssociativeTerm(AssociativeOp.Multiply, List.map (Mtag.Row >> mtagToTerm) operands)
+                            | Operator Divide ->
+                                let beforeDivide, afterDivide = List.splitAt index lst
+                                let afterDivideWithoutOp = List.skip 1 afterDivide
+                                Term.BinaryTerm (mtagToTerm (Mtag.Row beforeDivide), BinaryOp.Divide, f afterDivideWithoutOp)
+                            | _ ->
+                                printfn "ERROR: found unexpected operator when looking for multiplication and division"
+                                Term.TConstant(Real 999999999.9)
+                        | None ->
+                            mtagToTerm <| Mtag.Row lst
                     f mtagList
+                else
+                    // no multiply or divide (or multiply or divide) in the expression, add multiplication between what is there (i.e. 3xy = 3*x*y)
+                    match mtagList with
+                    | [] -> TConstant (Real 0.0)
+                    | [x] -> mtagToTerm x
+                    | _ ->
+                        let isFenced x =
+                            match x with
+                            | Fenced _ -> true
+                            | _ -> false
+                        let rec f mtagList =
+                            let parenIndex = List.tryFindIndex isFenced mtagList
+                            match parenIndex with
+                            | Some index when index > 0 ->
+                                let funcOpt = functionMap <| List.item (index - 1) mtagList
+                                let firstTerm =
+                                    match funcOpt with
+                                    | Some func ->
+                                        Term.UnaryTerm (func, mtagToTerm <| List.item index mtagList)
+                                    | None ->
+                                        printfn "no such function: %A" (List.item (index - 1) mtagList)
+                                        mtagToTerm <| List.item (index - 1) mtagList
+
+                                firstTerm // TODO: TODOTOTDOTODTODTO see discord for problems with this shit (recursivity and wrongness)
+                            | _ ->
+                                mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) mtagList) // if we have something like 3xy, make it 3*x*y, side effect: <mn>3</mn><mn>4</mn> -> 3*4, doesn't seem harmful
+                        f mtagList
     | Identifier str ->
         match str.Trim() with
         | "sin" -> UnaryTerm (Trig Sin, TVariable "str")
         | "&#x03C0; <!-- greek small letter pi -->" -> TConstant (Constant.Real Math.PI)
         | _ -> Term.TVariable str
-    | Operator str ->
+    | Operator op ->
         printfn "shouldn't happen, operator str"
         Term.TVariable "Operator"
     | Number num -> 
@@ -305,6 +309,8 @@ let termToMtag (term : Term) =
                 Fraction (termToMtagRec t1, termToMtagRec t2)
             | BinaryOp.Exponent -> 
                 Sup (termToMtagRec t1, termToMtagRec t2)
+            | BinaryOp.Equals ->
+                Row [termToMtagRec t1; Operator Equals; termToMtagRec t2]
         | AssociativeTerm (aop, termList) ->
             match aop with
             | AssociativeOp.Plus ->

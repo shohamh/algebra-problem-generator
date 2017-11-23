@@ -112,6 +112,7 @@ type BinaryOp =
 | Multiply
 | Divide
 | Exponent
+| Equals
 
 type AssociativeOp =
 | Plus
