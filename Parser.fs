@@ -153,7 +153,7 @@ let rec mtagToTerm (mtag : Mtag) : Term =
     | Row mtagList ->
         let splitByEquals = split ((=) <| Operator Equals) mtagList
         if List.length splitByEquals > 1 then
-            Term.BinaryTerm (mtagToTerm <| Mtag.Row (List.item 0 splitByEquals), BinaryOp.Equals, mtagToTerm <| Mtag.Row (List.item 1 splitByEquals))
+            Term.AssociativeTerm (AssociativeOp.Equals, List.map (Row >> mtagToTerm) splitByEquals)
         else
             let splitByPlusMinus = split (fun x -> x = Operator Plus || x = Operator Minus) mtagList
             if List.length splitByPlusMinus > 1 then
@@ -309,14 +309,14 @@ let termToMtag (term : Term) =
                 Fraction (termToMtagRec t1, termToMtagRec t2)
             | BinaryOp.Exponent -> 
                 Sup (termToMtagRec t1, termToMtagRec t2)
-            | BinaryOp.Equals ->
-                Row [termToMtagRec t1; Operator Equals; termToMtagRec t2]
         | AssociativeTerm (aop, termList) ->
             match aop with
             | AssociativeOp.Plus ->
                 Row <| Utils.intersperse (Mtag.Operator Plus) (List.map termToMtagRec termList)
             | AssociativeOp.Multiply ->
                 Row <| Utils.intersperse (Mtag.Operator Multiply) (List.map termToMtagRec termList)
+            | AssociativeOp.Equals ->
+                Row <| Utils.intersperse (Mtag.Operator Equals) (List.map termToMtagRec termList)
         | TFenced term ->
             Fenced <| termToMtagRec term
         | _ ->

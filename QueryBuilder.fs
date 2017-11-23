@@ -45,6 +45,9 @@ let rec build (root:Term) (constraints:Constraint list) : QTerm =
         | Multiply ->
             let qop = JustA (Multiply)
             QAssociativeTerm (qop, qlst)
+        | Equals ->
+            let qop = JustA (Equals)
+            QAssociativeTerm (qop, qlst)
     | Differential (var, term) ->
         QDifferential (var, build term [Free])
     | IndefiniteIntegral (var, term) ->

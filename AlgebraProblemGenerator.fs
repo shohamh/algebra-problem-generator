@@ -112,11 +112,11 @@ type BinaryOp =
 | Multiply
 | Divide
 | Exponent
-| Equals
 
 type AssociativeOp =
 | Plus
 | Multiply
+| Equals
 
 type BinORAssoc =
 | BinaryOp of BinaryOp
