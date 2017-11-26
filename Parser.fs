@@ -76,14 +76,15 @@ let pETag tagName  = between (sstr "</") (sstr ">") (pstr tagName) <!> "pETag"
 let pTag tagName p = between (pBTag tagName) (pETag tagName) p <!> "pTag"
 
 
-let mapIdentifier identifier =
-    match identifier with
+let mapIdentifier (identifier : string) =
+    let trimmedIdent = identifier.Trim()
+    match trimmedIdent with
     | "log" ->
         Mtag.Identifier "log"
     | "ln" ->
         Mtag.Identifier "ln"
     | _ ->
-        Mtag.Identifier identifier
+        Mtag.Identifier trimmedIdent
 let pMi = pTag "mi" (charsTillString "</mi>" false 1000) |>> mapIdentifier <!> "pMi"//(many1Chars (lower <|> upper <|> digit <|> anyOf ['-'; '<'; '>'; '&'; '#'; ';'; ' '; '!'])) |>> mapIdentifier <!> "pMi"
 
 
@@ -174,12 +175,20 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                             match negFirstElem with
                             | true -> [negate x]
                             | false -> x
-                        // if the operator after `x` is a minus, we'll negate the next section after it (calling recursively)
-                        fixedX @ Operator Plus :: (negateRelevantParts (List.skip (List.length x + 1) expression) ((List.item (List.length x) expression) = Operator Minus))
+                        let rest = 
+                            negateRelevantParts (List.skip (List.length x + 1) expression) ((List.item (List.length x) expression) = Operator Minus)
+                        if List.isEmpty fixedX then
+                            rest
+                        else
+                            // if the operator after `x` is a minus, we'll negate the next section after it (calling recursively)
+                            fixedX @ Operator Plus :: rest
 
                 let noMinuses = negateRelevantParts mtagList false
                 let lst = split ((=) <| Operator Plus) noMinuses
-                Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> mtagToTerm) lst)
+                if List.length lst = 1 then
+                    mtagToTerm <| Mtag.Row (List.item 0 lst)
+                else
+                    Term.AssociativeTerm (AssociativeOp.Plus, List.map (Mtag.Row >> mtagToTerm) lst)
                 
             else
                 // no pluses or minuses in the expression
