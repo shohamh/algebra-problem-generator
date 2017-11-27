@@ -368,8 +368,11 @@ let rec mtagToMathML (mtag : Mtag) =
     | Term term ->
         mtagToMathML <| termToMtag term
 
+let mathmlToMtag (mathML : string) : Mtag option =
+    test pMathML mathML
+
 let term (mathML : string) =
-    let parsedResult = test pMathML mathML
+    let parsedResult = mathmlToMtag mathML
     match parsedResult with
     | Some mtag ->
         Some <| mtagToTerm mtag

@@ -49,9 +49,62 @@ let checkEquality (mathml1: string) (mathml2: string) : bool =
 
     term1 = term2
 
+let isFinalAnswerForm (mathml: string) : bool =
+    let b = mathmlToMtag mathml
+    match b with
+    | Some (Mtag.Root (Mtag.Row [Mtag.Row mtagList])) | Some (Mtag.Root (Mtag.Row mtagList)) ->
+        let splitByEquals = split ((=) <| Mtag.Operator Equals) mtagList
+        let getVariable (x: Mtag) : string option =
+            match x with
+            | Identifier str ->
+                Some str
+            | _ -> None
+
+        let rec variablesInMtag (mtag: Mtag) : Mtag list =
+            match mtag with
+            | Identifier str ->
+                [Identifier str]
+            | Number _ | Operator _ ->
+                []
+            | Sup (m1, m2) | Fraction (m1, m2) | Sub (m1, m2) ->
+                variablesInMtag m1 @ variablesInMtag m2
+            | Root mt | Fenced mt | Sqrt mt ->
+                variablesInMtag mt
+            | Row mtagList ->
+                List.collect variablesInMtag mtagList
+
+        let listOfPossibleSingleVariables = List.map (List.item 0) <| List.filter (List.item 0 >> getVariable >> Option.isSome) splitByEquals
+
+        let perVar (var: Mtag) : bool =
+            match var with
+            | Identifier _ ->
+                let otherParts = List.filter (fun x -> x <> [var]) splitByEquals
+                
+                let varsInOtherParts = List.map (Mtag.Row >> variablesInMtag) otherParts
+                // if the var exists in some other part of the equation, then it's not a final answer
+                not <| List.contains true (List.map (fun varsInPart -> List.contains var varsInPart) varsInOtherParts)
+
+                //List.length (List.filter (fun x -> List.contains (fun y -> y = var) x) (varsInParts)) > 1
+            | _ -> false
+            
+        if List.isEmpty listOfPossibleSingleVariables then
+                false
+            else
+                List.contains true (List.map perVar listOfPossibleSingleVariables)
+            //if List.length variablesInMtag (fst <| List.item 0 listOfPossibleSingleVariables) = 1 then
+
+//            else
+
+
+
+    | _ -> false
+
+
+
 type CLIArguments =
     | CheckEquality of mathml1:string * mathml2:string
     | GenerateSimilarTerm of mathml:string
+    | IsFinalAnswerForm of mathml:string
     | Debug
 with
     interface IArgParserTemplate with
@@ -59,6 +112,7 @@ with
             match s with
             | CheckEquality _ -> "Checks for equality between two mathML strings."
             | GenerateSimilarTerm _ -> "Generates a similar mathML term."
+            | IsFinalAnswerForm _ -> "if answer is of the form of 'one variable'='things without that one variable'"
             | Debug -> "Prints debug messages for parsers."
 
 
@@ -78,6 +132,8 @@ let main argv =
                 printfn "%A" (checkEquality mathml1 mathml2)
             | GenerateSimilarTerm mathml ->
                 printfn "%s" (generateSimilarMathMLFromMathML mathml)
+            | IsFinalAnswerForm mathml ->
+                printfn "%b" (isFinalAnswerForm mathml) 
             parseCommandline xs
     parseCommandline parserResults
     // printfn "hi"
