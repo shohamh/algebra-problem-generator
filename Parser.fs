@@ -90,7 +90,7 @@ let pMi = pTag "mi" (charsTillString "</mi>" false 1000) |>> mapIdentifier <!> "
 
 let plusOperatorParser = choice [pstr "+"] |>> (fun _ -> Mtag.Operator Plus)
 let minusOperatorParser = choice [pstr "-"] |>> (fun _ -> Mtag.Operator Minus)
-let multiplyOperatorParser = choice [pstr "*"; pstr "&#x00B7; <!-- middle dot -->"] |>> (fun _ -> Mtag.Operator Multiply)
+let multiplyOperatorParser = choice [pstr "*"; pstr "&#x00B7; <!-- middle dot -->"; pstr "&#x00D7; <!-- multiplication sign -->"] |>> (fun _ -> Mtag.Operator Multiply)
 let divideOperatorParser = choice [pstr "/"] |>> (fun _ -> Mtag.Operator Divide)
 let exponentOperatorParser = choice [pstr "^"] |>> (fun _ -> Mtag.Operator Exponent)
 let equalsOperatorParser = choice [pstr "="] |>> (fun _ -> Mtag.Operator Equals)
