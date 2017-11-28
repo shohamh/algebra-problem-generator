@@ -14,11 +14,11 @@ let rec executeTerm (qterm : QTerm) =
             let minRange = List.min (List.map fst domainlist)
             let max = 
                 match maxRange with
-                | Infinity -> Real (float 50)
+                | Infinity -> Real (float 25)
                 | a -> a
             let min = 
                 match minRange with
-                | NegativeInfinity -> Real (float -50)
+                | NegativeInfinity -> Real (float -25)
                 | a -> a
             
             if min = roundConstant min && max = roundConstant max then
