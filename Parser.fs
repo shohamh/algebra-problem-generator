@@ -357,9 +357,9 @@ let termToMtag (term : Term) =
                         removeUnnecessaryRows mList @ removeUnnecessaryRows xs
                     | _ ->
                         x :: removeUnnecessaryRows xs
-            printfn "before:\n %A" mtList
+            //printfn "before:\n %A" mtList
             let mtagList = removeUnnecessaryRows mtList
-            printfn "afterRows:\n %A" mtagList
+            //printfn "afterRows:\n %A" mtagList
             let operatorClusters = List.filter (List.isEmpty >> not) <| split (isOperator >> not) mtagList
             let rec fixClusters opClusters =
                 let rec fixOpCluster opCluster (acc: Mtag list) =
@@ -397,11 +397,11 @@ let termToMtag (term : Term) =
             
             if isOperator (List.item 0 mtagList) then
                 let fixedMtagList = List.concat (Utils.merge fixedClusters notOpClusters)
-                printfn "fixedMtagList:\n%A" fixedMtagList
+                //printfn "fixedMtagList:\n%A" fixedMtagList
                 Mtag.Row fixedMtagList 
             else
                 let fixedMtagList = List.concat (Utils.merge notOpClusters fixedClusters)
-                printfn "fixedMtagList:\n%A" fixedMtagList
+                //printfn "fixedMtagList:\n%A" fixedMtagList
                 Mtag.Row fixedMtagList 
 
             
