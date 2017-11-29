@@ -6,6 +6,7 @@ open Utils
 open System
 open System.Security.Cryptography.X509Certificates
 open Microsoft.Win32.SafeHandles
+open Microsoft.VisualBasic.CompilerServices
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -356,44 +357,51 @@ let termToMtag (term : Term) =
                         removeUnnecessaryRows mList @ removeUnnecessaryRows xs
                     | _ ->
                         x :: removeUnnecessaryRows xs
-            //printfn "before:\n %A" mtList
+            printfn "before:\n %A" mtList
             let mtagList = removeUnnecessaryRows mtList
-            //printfn "afterRows:\n %A" mtagList
+            printfn "afterRows:\n %A" mtagList
             let operatorClusters = List.filter (List.isEmpty >> not) <| split (isOperator >> not) mtagList
             let rec fixClusters opClusters =
-                let rec fixOpCluster opCluster =
+                let rec fixOpCluster opCluster (acc: Mtag list) =
                     match opCluster with
-                    | [] -> []
-                    | [x] -> [x]
-                    | x::y::xs ->
-                        match y with
+                    | [] -> acc
+                    | x::xs ->
+                        match x with
                         | Operator Minus ->
-                            match x with
-                            | Operator Plus ->
-                                Operator Minus :: fixOpCluster xs
-                            | Operator Minus ->
-                                Operator Plus :: fixOpCluster xs
+                            match List.tryLast acc with
+                            | Some (Operator Plus) ->
+                                fixOpCluster xs (List.take (List.length acc - 1) acc @ [Operator Minus])
+                            | Some (Operator Minus) ->
+                                fixOpCluster xs (List.take (List.length acc - 1) acc @ [Operator Plus])
                             | _ -> 
-                                x::y::fixOpCluster xs
+                                fixOpCluster xs (acc @ [x])
+                        | Operator Plus ->
+                            match List.tryLast acc with
+                            | Some (Operator Plus) ->
+                                fixOpCluster xs acc
+                            | Some (Operator Minus) ->
+                                fixOpCluster xs acc
+                            | _ ->
+                                fixOpCluster xs (acc @ [x])
                         | _ ->
-                            x::y::fixOpCluster xs
+                            fixOpCluster xs (acc @ [x])
                         
                                
                 
                 match opClusters with
                 | [] -> []
                 | x::xs ->
-                    fixOpCluster x :: fixClusters xs
+                    fixOpCluster x [] :: fixClusters xs
             let fixedClusters = fixClusters operatorClusters
             let notOpClusters = List.filter (List.isEmpty >> not) <| List.map (fun x -> List.map postProcessMtag x) (split isOperator mtagList)
             
             if isOperator (List.item 0 mtagList) then
                 let fixedMtagList = List.concat (Utils.merge fixedClusters notOpClusters)
-                //printfn "fixedMtagList:\n%A" fixedMtagList
+                printfn "fixedMtagList:\n%A" fixedMtagList
                 Mtag.Row fixedMtagList 
             else
                 let fixedMtagList = List.concat (Utils.merge notOpClusters fixedClusters)
-                //printfn "fixedMtagList:\n%A" fixedMtagList
+                printfn "fixedMtagList:\n%A" fixedMtagList
                 Mtag.Row fixedMtagList 
 
             
