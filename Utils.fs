@@ -19,7 +19,7 @@ let rec intersperse (elem: 'T) (lst: 'T list) =
     | [x] -> [x]
     | x::xs -> x::elem::(intersperse elem xs)
 
-let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
+let split (predicate: 'T -> bool) (lst: 'T list) : 'T list list =
     let rec splitUtil acc lst =
         let beforePredicate = List.takeWhile (predicate >> not) lst
         let afterPredicate = List.skip beforePredicate.Length lst
@@ -27,3 +27,9 @@ let split (predicate: 'T -> bool) (lst: 'T list) : ('T list) list =
         | x::rest when predicate x -> splitUtil (beforePredicate::acc) rest // x is the element to split with
         | _ -> beforePredicate::acc
     List.rev <| splitUtil [] lst
+
+let rec merge (list1: 'T list) (list2: 'T list) : 'T list =
+    match list1, list2 with
+    | xs, [] -> xs
+    | [], ys -> ys
+    | x::xs, y::ys -> x::y::(merge xs ys)

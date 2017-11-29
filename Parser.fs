@@ -4,6 +4,8 @@ open FParsec
 open AlgebraProblemGenerator
 open Utils
 open System
+open System.Security.Cryptography.X509Certificates
+open Microsoft.Win32.SafeHandles
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -286,7 +288,11 @@ let termToMtag (term : Term) =
             match tc with
             | Infinity -> Mtag.Number System.Double.PositiveInfinity // TODO: verify infinities work like that in mathml
             | NegativeInfinity -> Mtag.Number System.Double.NegativeInfinity
-            | Real r -> Mtag.Number r
+            | Real r -> 
+                if r >= 0.0 then
+                    Mtag.Number r
+                else
+                    Mtag.Row [Mtag.Operator Minus; Mtag.Number (abs r)]
         | TVariable var -> Mtag.Identifier var
         | UnaryTerm (uop, t1) ->
             match uop with
@@ -330,7 +336,67 @@ let termToMtag (term : Term) =
             Fenced <| termToMtagRec term
         | _ ->
             Number 999999999999999.0
-    Root <| termToMtagRec term
+    let mtag = termToMtagRec term
+
+    let isOperator (mtag: Mtag) =
+        match mtag with
+        | Operator _ ->
+            true
+        | _ -> false
+    // some post-processing, like removing unnecessary operators (x+-3 -> x-3, (-3) -> - 3 (because that's how myscript wants it))
+    let rec postProcessMtag (mtag:Mtag) : Mtag =
+        match mtag with
+        | Row mtList ->
+            let rec removeUnnecessaryRows (mtagList: Mtag list) : Mtag list =
+                match mtagList with
+                | [] -> []
+                | x::xs ->
+                    match x with
+                    | Row mList ->
+                        mList @ removeUnnecessaryRows xs
+                    | _ ->
+                        x :: removeUnnecessaryRows xs
+            let mtagList = removeUnnecessaryRows mtList
+            let operatorClusters = List.filter (List.isEmpty >> not) <| split (isOperator >> not) mtagList
+            let rec fixClusters opClusters =
+                let rec fixOpCluster opCluster =
+                    match opCluster with
+                    | [] -> []
+                    | [x] -> [x]
+                    | x::y::xs ->
+                        match y with
+                        | Operator Minus ->
+                            match x with
+                            | Operator Plus ->
+                                Operator Minus :: fixOpCluster xs
+                            | _ -> 
+                                x::y::fixOpCluster xs
+                        | _ ->
+                            x::y::fixOpCluster xs
+                        
+                               
+                
+                match opClusters with
+                | [] -> []
+                | x::xs ->
+                    fixOpCluster x :: fixClusters xs
+            let fixedClusters = fixClusters operatorClusters
+            let notOpClusters = List.map (fun x -> List.map postProcessMtag x) (split isOperator mtagList)
+            
+            let fixedMtagList = List.concat (Utils.merge notOpClusters fixedClusters)
+            Mtag.Row fixedMtagList 
+            
+        | Number flt -> Number flt //termToMtagRec (Term.UnaryTerm (Negative, TConstant (Real (abs flt))))
+        | Fraction (mt1, mt2) -> Fraction (postProcessMtag mt1, postProcessMtag mt2)
+        | Sup (mt1, mt2) -> Sup (postProcessMtag mt1, postProcessMtag mt2)
+        | Sub (mt1, mt2) -> Sub (postProcessMtag mt1, postProcessMtag mt2)
+        | Sqrt mt -> Sqrt (postProcessMtag mt)
+        | Root mt -> Root (postProcessMtag mt)
+        | Fenced mt -> Fenced (postProcessMtag mt)
+        | Term t -> postProcessMtag (termToMtagRec t)
+        | _ -> mtag
+    let fixedMtag = postProcessMtag <| termToMtagRec term    
+    Root <| fixedMtag
 
 let mathMLtag tag insides =
     "<" + tag + ">" + insides + "</" + tag + ">"
@@ -344,7 +410,7 @@ let rec mtagToMathML (mtag : Mtag) =
             match op with
             | Plus -> "+"
             | Minus -> "-"
-            | Multiply -> "*" //TODO: middle-dot?
+            | Multiply -> "&#x00B7; <!-- middle dot -->" //TODO: middle-dot?
             | Divide -> "/"
             | Exponent -> "^"
             | Equals -> "="
