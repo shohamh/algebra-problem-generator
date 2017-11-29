@@ -20,7 +20,8 @@ let generateSimilarTerm (term : Term) =
     // printfn "QueryBuilder QTerm: %A\n" qterm
     let term2 = QueryExecutor.executeTerm qterm
     // printfn "QueryExecutor Generated Term: %A\n" term2
-
+    //printfn "generated term: %A" term2
+    //TODO: fix V
     term2
 
 let generateSimilarTermFromMathML (mathML : string) =

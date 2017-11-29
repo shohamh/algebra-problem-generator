@@ -353,10 +353,12 @@ let termToMtag (term : Term) =
                 | x::xs ->
                     match x with
                     | Row mList ->
-                        mList @ removeUnnecessaryRows xs
+                        removeUnnecessaryRows mList @ removeUnnecessaryRows xs
                     | _ ->
                         x :: removeUnnecessaryRows xs
+            //printfn "before:\n %A" mtList
             let mtagList = removeUnnecessaryRows mtList
+            //printfn "afterRows:\n %A" mtagList
             let operatorClusters = List.filter (List.isEmpty >> not) <| split (isOperator >> not) mtagList
             let rec fixClusters opClusters =
                 let rec fixOpCluster opCluster =
@@ -381,10 +383,17 @@ let termToMtag (term : Term) =
                 | x::xs ->
                     fixOpCluster x :: fixClusters xs
             let fixedClusters = fixClusters operatorClusters
-            let notOpClusters = List.map (fun x -> List.map postProcessMtag x) (split isOperator mtagList)
+            let notOpClusters = List.filter (List.isEmpty >> not) <| List.map (fun x -> List.map postProcessMtag x) (split isOperator mtagList)
             
-            let fixedMtagList = List.concat (Utils.merge notOpClusters fixedClusters)
-            Mtag.Row fixedMtagList 
+            if isOperator (List.item 0 mtagList) then
+                let fixedMtagList = List.concat (Utils.merge fixedClusters notOpClusters)
+                //printfn "fixedMtagList:\n%A" fixedMtagList
+                Mtag.Row fixedMtagList 
+            else
+                let fixedMtagList = List.concat (Utils.merge notOpClusters fixedClusters)
+                //printfn "fixedMtagList:\n%A" fixedMtagList
+                Mtag.Row fixedMtagList 
+
             
         | Number flt -> Number flt //termToMtagRec (Term.UnaryTerm (Negative, TConstant (Real (abs flt))))
         | Fraction (mt1, mt2) -> Fraction (postProcessMtag mt1, postProcessMtag mt2)
@@ -396,6 +405,7 @@ let termToMtag (term : Term) =
         | Term t -> postProcessMtag (termToMtagRec t)
         | _ -> mtag
     let fixedMtag = postProcessMtag <| termToMtagRec term    
+    //printfn "fixedMtag:\n %A" fixedMtag
     Root <| fixedMtag
 
 let mathMLtag tag insides =
@@ -424,7 +434,8 @@ let rec mtagToMathML (mtag : Mtag) =
     | Root mt ->
         "<math xmlns='http://www.w3.org/1998/Math/MathML'>" + mtagToMathML mt + "</math>"
     | Row mtList ->
-        mathMLtag "mrow" <| List.fold (+) "" (List.map mtagToMathML mtList)
+        let list = List.fold (+) "" (List.map mtagToMathML mtList)
+        mathMLtag "mrow" <| list
     | Sub (above, below) ->
         mathMLtag "msub" <| mtagToMathML above + mtagToMathML below
     | Sup (base_, exponent) ->
