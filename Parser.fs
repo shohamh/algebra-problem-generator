@@ -4,6 +4,9 @@ open FParsec
 open AlgebraProblemGenerator
 open Utils
 open System
+open System.Security.Cryptography.X509Certificates
+open Microsoft.Win32.SafeHandles
+open Microsoft.VisualBasic.CompilerServices
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -90,7 +93,7 @@ let pMi = pTag "mi" (charsTillString "</mi>" false 1000) |>> mapIdentifier <!> "
 
 let plusOperatorParser = choice [pstr "+"] |>> (fun _ -> Mtag.Operator Plus)
 let minusOperatorParser = choice [pstr "-"] |>> (fun _ -> Mtag.Operator Minus)
-let multiplyOperatorParser = choice [pstr "*"; pstr "&#x00B7; <!-- middle dot -->"] |>> (fun _ -> Mtag.Operator Multiply)
+let multiplyOperatorParser = choice [pstr "*"; pstr "&#x00B7; <!-- middle dot -->"; pstr "&#x00D7; <!-- multiplication sign -->"] |>> (fun _ -> Mtag.Operator Multiply)
 let divideOperatorParser = choice [pstr "/"] |>> (fun _ -> Mtag.Operator Divide)
 let exponentOperatorParser = choice [pstr "^"] |>> (fun _ -> Mtag.Operator Exponent)
 let equalsOperatorParser = choice [pstr "="] |>> (fun _ -> Mtag.Operator Equals)
@@ -286,7 +289,11 @@ let termToMtag (term : Term) =
             match tc with
             | Infinity -> Mtag.Number System.Double.PositiveInfinity // TODO: verify infinities work like that in mathml
             | NegativeInfinity -> Mtag.Number System.Double.NegativeInfinity
-            | Real r -> Mtag.Number r
+            | Real r -> 
+                if r >= 0.0 then
+                    Mtag.Number r
+                else
+                    Mtag.Row [Mtag.Operator Minus; Mtag.Number (abs r)]
         | TVariable var -> Mtag.Identifier var
         | UnaryTerm (uop, t1) ->
             match uop with
@@ -330,7 +337,86 @@ let termToMtag (term : Term) =
             Fenced <| termToMtagRec term
         | _ ->
             Number 999999999999999.0
-    Root <| termToMtagRec term
+    let mtag = termToMtagRec term
+
+    let isOperator (mtag: Mtag) =
+        match mtag with
+        | Operator _ ->
+            true
+        | _ -> false
+    // some post-processing, like removing unnecessary operators (x+-3 -> x-3, (-3) -> - 3 (because that's how myscript wants it))
+    let rec postProcessMtag (mtag:Mtag) : Mtag =
+        match mtag with
+        | Row mtList ->
+            let rec removeUnnecessaryRows (mtagList: Mtag list) : Mtag list =
+                match mtagList with
+                | [] -> []
+                | x::xs ->
+                    match x with
+                    | Row mList ->
+                        removeUnnecessaryRows mList @ removeUnnecessaryRows xs
+                    | _ ->
+                        x :: removeUnnecessaryRows xs
+            //printfn "before:\n %A" mtList
+            let mtagList = removeUnnecessaryRows mtList
+            //printfn "afterRows:\n %A" mtagList
+            let operatorClusters = List.filter (List.isEmpty >> not) <| split (isOperator >> not) mtagList
+            let rec fixClusters opClusters =
+                let rec fixOpCluster opCluster (acc: Mtag list) =
+                    match opCluster with
+                    | [] -> acc
+                    | x::xs ->
+                        match x with
+                        | Operator Minus ->
+                            match List.tryLast acc with
+                            | Some (Operator Plus) ->
+                                fixOpCluster xs (List.take (List.length acc - 1) acc @ [Operator Minus])
+                            | Some (Operator Minus) ->
+                                fixOpCluster xs (List.take (List.length acc - 1) acc @ [Operator Plus])
+                            | _ -> 
+                                fixOpCluster xs (acc @ [x])
+                        | Operator Plus ->
+                            match List.tryLast acc with
+                            | Some (Operator Plus) ->
+                                fixOpCluster xs acc
+                            | Some (Operator Minus) ->
+                                fixOpCluster xs acc
+                            | _ ->
+                                fixOpCluster xs (acc @ [x])
+                        | _ ->
+                            fixOpCluster xs (acc @ [x])
+                        
+                               
+                
+                match opClusters with
+                | [] -> []
+                | x::xs ->
+                    fixOpCluster x [] :: fixClusters xs
+            let fixedClusters = fixClusters operatorClusters
+            let notOpClusters = List.filter (List.isEmpty >> not) <| List.map (fun x -> List.map postProcessMtag x) (split isOperator mtagList)
+            
+            if isOperator (List.item 0 mtagList) then
+                let fixedMtagList = List.concat (Utils.merge fixedClusters notOpClusters)
+                //printfn "fixedMtagList:\n%A" fixedMtagList
+                Mtag.Row fixedMtagList 
+            else
+                let fixedMtagList = List.concat (Utils.merge notOpClusters fixedClusters)
+                //printfn "fixedMtagList:\n%A" fixedMtagList
+                Mtag.Row fixedMtagList 
+
+            
+        | Number flt -> Number flt //termToMtagRec (Term.UnaryTerm (Negative, TConstant (Real (abs flt))))
+        | Fraction (mt1, mt2) -> Fraction (postProcessMtag mt1, postProcessMtag mt2)
+        | Sup (mt1, mt2) -> Sup (postProcessMtag mt1, postProcessMtag mt2)
+        | Sub (mt1, mt2) -> Sub (postProcessMtag mt1, postProcessMtag mt2)
+        | Sqrt mt -> Sqrt (postProcessMtag mt)
+        | Root mt -> Root (postProcessMtag mt)
+        | Fenced mt -> Fenced (postProcessMtag mt)
+        | Term t -> postProcessMtag (termToMtagRec t)
+        | _ -> mtag
+    let fixedMtag = postProcessMtag <| termToMtagRec term    
+    //printfn "fixedMtag:\n %A" fixedMtag
+    Root <| fixedMtag
 
 let mathMLtag tag insides =
     "<" + tag + ">" + insides + "</" + tag + ">"
@@ -344,7 +430,7 @@ let rec mtagToMathML (mtag : Mtag) =
             match op with
             | Plus -> "+"
             | Minus -> "-"
-            | Multiply -> "*" //TODO: middle-dot?
+            | Multiply -> "&#x00B7; <!-- middle dot -->" //TODO: middle-dot?
             | Divide -> "/"
             | Exponent -> "^"
             | Equals -> "="
@@ -358,7 +444,8 @@ let rec mtagToMathML (mtag : Mtag) =
     | Root mt ->
         "<math xmlns='http://www.w3.org/1998/Math/MathML'>" + mtagToMathML mt + "</math>"
     | Row mtList ->
-        mathMLtag "mrow" <| List.fold (+) "" (List.map mtagToMathML mtList)
+        let list = List.fold (+) "" (List.map mtagToMathML mtList)
+        mathMLtag "mrow" <| list
     | Sub (above, below) ->
         mathMLtag "msub" <| mtagToMathML above + mtagToMathML below
     | Sup (base_, exponent) ->
@@ -368,8 +455,11 @@ let rec mtagToMathML (mtag : Mtag) =
     | Term term ->
         mtagToMathML <| termToMtag term
 
+let mathmlToMtag (mathML : string) : Mtag option =
+    test pMathML mathML
+
 let term (mathML : string) =
-    let parsedResult = test pMathML mathML
+    let parsedResult = mathmlToMtag mathML
     match parsedResult with
     | Some mtag ->
         Some <| mtagToTerm mtag
