@@ -68,7 +68,6 @@ let checkDirectDescendant (root:Node) (parent:NodeValue) (child:NodeValue) : Nod
     List.filter (fun parent -> List.exists (fun x-> x.value = child) parent.children) parents
 
 let checkSibling (root:Node) (siblings:NodeValue list) : Node list list = 
-    //(List.map (getChildren >> (containsList siblings)) (getAll root))
     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
     List.filter (fun x-> containsList (List.map (fun y-> y.value) x) siblings) childrenOfNodes 
 
@@ -80,20 +79,21 @@ let checkImmediatePrecedent (root:Node)  (siblings:NodeValue list): Node list li
     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
     List.filter (fun x-> containsExactList (List.map (fun y-> y.value) x) siblings) childrenOfNodes
 
-let rec checkRelation (root:Node) (relation:TregRelation) : bool =
-    match relation with
-    | Plain (node1,relation1,node2) ->
-        match relation1 with
-        | Descendant -> checkDescendant root node1 node2
-        | DirectDescendant -> checkDirectDescendant root node1 node2
-        | Sibling -> checkSibling root [node1;node2]
-        | Precedent -> checkPrecedent root [node1;node2]
-        | ImmediatePrecedent -> checkImmediatePrecedent root [node1;node2]
-    | Complex (node1,relation1,relations) ->
-        match relation1 with
-        | Descendant -> 
-            let nodes=find root node1
-            List.exists (fun node -> checkRelation node relations) nodes
-        | DirectDescendant -> 
+let rec checkDescendantReal (ancestor:Node) (descendant:Node) : bool=
+    if ancestor=descendant then true
+    else List.exists (checkDescendantReal descendant) ancestor.children
+
+let rec checkRegex (root:Node) (exp:TRegex) : Node list =
+    if exp.subjects.IsSome then find root exp.dominant
+    else 
+        for (relation, sexp) in exp.subjects do
+            let candidates = checkRegex root sexp
+            for candidate in candidates do
+                match relation with
+                | Descendant ->
+                    if not (checkDescendantReal exp.dominant candidate) then false
+                    else    
+             
+             
 
 
