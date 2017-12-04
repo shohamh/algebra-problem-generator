@@ -83,16 +83,48 @@ let rec checkDescendantReal (ancestor:Node) (descendant:Node) : bool=
     if ancestor=descendant then true
     else List.exists (checkDescendantReal descendant) ancestor.children
 
-let rec checkRegex (root:Node) (exp:TRegex) : Node list =
-    if exp.subjects.IsSome then find root exp.dominant
+let checkDirectDescendantReal (parent:Node) (descendant:Node) : bool =
+    List.contains descendant parent.children
+
+let checkSiblingReal (node1:Node) (node2:Node) : bool = 
+    if node1.parent.IsSome then List.contains node2 node1.parent.Value.children
+    else false
+
+let checkPrecedentReal (node1: Node) (node2: Node) : bool=
+    if node1.parent.IsNone then false
     else 
-        for (relation, sexp) in exp.subjects do
-            let candidates = checkRegex root sexp
-            for candidate in candidates do
+        let idx1=List.findIndex (fun child -> child=node1) node1.parent.Value.children
+        let idx2=List.findIndex (fun child -> child=node2) node1.parent.Value.children
+        idx1<idx2
+let checkImmediatePrecedentReal (node1: Node) (node2: Node) : bool =
+    if node1.parent.IsNone then false
+    else 
+        let idx1=List.findIndex (fun child -> child=node1) node1.parent.Value.children
+        let idx2=List.findIndex (fun child -> child=node2) node1.parent.Value.children
+        idx1=idx2-1
+
+let rec checkRegex (root:Node) (exp:TRegex) : Node list =
+    match exp.subjects with
+    | Some subjects ->
+        let checkPerSubject (relation, sexp) : Node list =
+            let isGoodDominantsFunction =
                 match relation with
                 | Descendant ->
-                    if not (checkDescendantReal exp.dominant candidate) then false
-                    else    
+                    checkDescendant
+            let isGoodCandidateFunction =
+                match relation with
+                | Descendant ->
+                    checkDescendantReal    
+
+            let candidates = checkRegex root sexp
+            
+            let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
+
+            List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
+        List.ofSeq (Set.intersectMany <| List.map (checkPerSubject >> set) subjects)
+    | None ->
+        find root exp.dominant
+
              
              
 
