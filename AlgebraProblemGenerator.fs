@@ -109,7 +109,6 @@ type UnaryOp =
 | InvTrig of InvTrig
 
 type BinaryOp =
-| Multiply
 | Divide
 | Exponent
 

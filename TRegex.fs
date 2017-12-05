@@ -178,40 +178,48 @@ let rec checkRegex (root:Node) (exp:TRegex) : Node list =
         let checkPerSubject (relation, sexp) : Node list =
             let isGoodDominantsFunction =
                 match relation with
-                | Descendant ->
-                    checkDescendant
-                | DirectDescendant ->
-                    checkDirectDescendant       
+                | Descendant -> checkDescendant
+                | DirectDescendant -> checkDirectDescendant   
+                // | Sibling -> checkSibling 
+                // | Precedent -> checkPrecedent
+                // | ImmediatePrecedent -> checkImmediatePrecedent
             let isGoodCandidateFunction =
                 match relation with
-                | Descendant ->
-                    checkDescendantReal    
-                | DirectDescendant ->
-                    checkDescendantReal    
+                | Descendant -> checkDescendantReal    
+                | DirectDescendant -> checkDirectDescendantReal
+                | Sibling -> checkSiblingReal
+                | Precedent -> checkPrecedentReal
+                | ImmediatePrecedent -> checkImmediatePrecedentReal
             let candidates = checkRegex root sexp            
-            let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
-            List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
+            match candidates with
+            | [] -> []
+            | _ ->
+                let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
+                List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
         List.ofSeq (Set.intersectMany <| List.map (checkPerSubject >> set) subjects)
     | None ->
         find root exp.dominant
 
-let rec collectDomains (term:Term) (exp: TRegex) (baseExpressions: TRegex list) : TRegex list = 
-    let tree = termToNode term
-    let matches = checkRegex tree exp
-    match matches with
-    | [] -> []
-    | _ ->
-        let perExpression (expression: TRegex) =
-            let tregex = {
-                dominant = exp.dominant;
-                subjects =  
-                    match exp.subjects with
-                    | Some listOfSubjects ->
-                        Some (List.append listOfSubjects [(Relation.Descendant, expression)])
-                    | None ->
-                        Some [(Relation.Descendant, expression)]
-            }
-            collectDomains term tregex baseExpressions
-        List.collect perExpression baseExpressions
-
-
+let collectDomains (term : Term) (baseExpressions: TRegex list) : TRegex list =
+    let rec collectDomainsHelper (term:Term) (exp: TRegex) (baseExpressions: TRegex list) : TRegex list = 
+        printfn "checkRegex: %A" exp
+        let tree = termToNode term
+        let matches = checkRegex tree exp
+        match matches with
+        | [] ->
+            printfn "%b" false 
+            []
+        | _ ->
+            let perExpression (expression: TRegex) =
+                let tregex = {
+                    dominant = exp.dominant;
+                    subjects =  
+                        match exp.subjects with
+                        | Some listOfSubjects ->
+                            Some (List.append listOfSubjects [(Relation.Descendant, expression)])
+                        | None ->
+                            Some [(Relation.Descendant, expression)]
+                }
+                collectDomainsHelper term tregex baseExpressions
+            List.collect perExpression baseExpressions
+    List.collect (fun baseExpression -> collectDomainsHelper term baseExpression baseExpressions) baseExpressions

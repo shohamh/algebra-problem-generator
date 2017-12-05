@@ -121,7 +121,7 @@ do pMstyleRef := pTag "mstyle" pMtag <!> "pMstyle"
 do pMfracRef := pTag "mfrac" (tuple2 pMtag pMtag) |>> Fraction <!> "pMfrac"
 do pMsqrtRef := pTag "msqrt" (many pMtag) |>> (Row >> Sqrt) <!> "pMsqrt"
 
-let pMathML = pMathTag (many pMtag) |>> (fun x -> Mtag.Root (Mtag.Row x)) <!> "pMathML"
+let pMathML = pMathTag (many pMtag) |>> (Row >> Root) <!> "pMathML"
 
 let functionMap beforeParentheses : UnaryOp option = 
     match beforeParentheses with
@@ -317,10 +317,6 @@ let termToMtag (term : Term) =
                 Row [Sup (Identifier func, Number -1.0); Mtag.Fenced (termToMtagRec t1)]
         | BinaryTerm (t1, bop, t2) ->
             match bop with
-            | BinaryOp.Multiply ->
-                Row [termToMtagRec t1; Operator Multiply; termToMtagRec t2]
-            | BinaryOp.Divide ->
-                Fraction (termToMtagRec t1, termToMtagRec t2)
             | BinaryOp.Exponent -> 
                 Sup (termToMtagRec t1, termToMtagRec t2)
         | AssociativeTerm (aop, termList) ->
@@ -494,7 +490,7 @@ let parserTests =
 
 ///////////////////////////////// TREGEX PARSER
 
-// A << B
+// A # B
 //    A dominates B
 // A < B 
 //    A immediately dominates B
@@ -508,28 +504,43 @@ let parserTests =
 // A . B 
 //    A immediately precedes B
 
-let pTRelation = choice [pstr "<"; pstr "<<"; pstr "$"; pstr ","; pstr "."] |>> (fun str ->
-    match str with
-    | "<" -> Relation.Descendant
-    | "<<" -> Relation.DirectDescendant
-    | "$" -> Relation.Sibling
-    | "," -> Relation.Precedent
-    | "." -> Relation.ImmediatePrecedent
-    )
+let pTRelation = choice [attempt <| pstr "#" >>% Relation.Descendant <!> "#";
+                         attempt <| pstr "<" >>% Relation.DirectDescendant <!> "<";
+                         attempt <| pstr "$" >>% Relation.Sibling <!> "$";
+                         attempt <| pstr "," >>% Relation.Precedent <!> ",";
+                         attempt <| pstr "." >>% Relation.ImmediatePrecedent <!> "."] <!> "pTRelation"
+
+
 
 let pTConstant = choice [pfloat |>> Constant.Real;
                          sstr "inf" >>% Constant.Infinity;
-                         sstr "ninf" >>% Constant.NegativeInfinity]
-let pTVariable = manyChars anyChar
+                         sstr "ninf" >>% Constant.NegativeInfinity] <!> "pTConstant"
+let pTVariable = identifier (IdentifierOptions (normalizeBeforeValidation = true))  <!> "pTVariable"
 
-let pTrig = choice [ pstr "sin" >>% Trig.Sin; pstr "cos" >>% Trig.Cos; pstr "tan" >>% Trig.Tan; pstr "cot" >>% Trig.Cot; pstr "sec" >>% Trig.Sec; pstr "csc" >>% Trig.Csc]
-let pInvTrig = choice [ pstr "asin" >>% InvTrig.Arcsin; pstr "acos" >>% InvTrig.Arccos; pstr "atan" >>% InvTrig.Arctan; pstr "acot" >>% InvTrig.Arccot; pstr "asec" >>% InvTrig.Arcsec; pstr "acsc" >>% InvTrig.Arccsc]
-let pLog = pstr "log" >>. pTConstant |>> UnaryOp.Log
-let pUnaryOp = choice [pstr "-" >>% UnaryOp.Negative; pstr "ln" >>% UnaryOp.NaturalLog; pLog; pstr "sqrt" >>% UnaryOp.Sqrt; pTrig |>> UnaryOp.Trig; pInvTrig |>> UnaryOp.InvTrig]
+let pTrig = choice [ pstr "sin" >>% Trig.Sin; pstr "cos" >>% Trig.Cos; pstr "tan" >>% Trig.Tan; pstr "cot" >>% Trig.Cot; pstr "sec" >>% Trig.Sec; pstr "csc" >>% Trig.Csc] <!> "pTrig"
+let pInvTrig = choice [ pstr "asin" >>% InvTrig.Arcsin; pstr "acos" >>% InvTrig.Arccos; pstr "atan" >>% InvTrig.Arctan; pstr "acot" >>% InvTrig.Arccot; pstr "asec" >>% InvTrig.Arcsec; pstr "acsc" >>% InvTrig.Arccsc] <!> "pInvTrig"
+let pLog = pstr "log" >>. pTConstant |>> UnaryOp.Log <!> "pLog"
+let pUnaryOp = choice [pstr "-" >>% UnaryOp.Negative <!> "negative"; pstr "ln" >>% UnaryOp.NaturalLog <!> "ln"; pLog; pstr "sqrt" >>% UnaryOp.Sqrt <!> "sqrt"; pTrig |>> UnaryOp.Trig; pInvTrig |>> UnaryOp.InvTrig] <!> "pUnaryOp"
 
-let pBinaryOp = choice [pstr "/" >>% BinaryOp.Divide; pstr "^" >>% BinaryOp.Exponent]
-let pAssociativeOp = choice [pstr "+" >>% AssociativeOp.Plus; pstr "*" >>% AssociativeOp.Multiply; pstr "=" >>% AssociativeOp.Equals]
-let pNodeValue = choice [pUnaryOp |>> NodeValue.UnaryOp; pBinaryOp |>> NodeValue.BinaryOp; pAssociativeOp |>> NodeValue.AssociativeOp; pTConstant |>> NodeValue.Constant; pTVariable |>> NodeValue.Variable]
+let pBinaryOp = choice [pstr "/" >>% BinaryOp.Divide <!> "divide"; pstr "^" >>% BinaryOp.Exponent <!> "exponent"] <!> "pBinaryOp"
+let pAssociativeOp = choice [pstr "+" >>% AssociativeOp.Plus <!> "plus"; pstr "*" >>% AssociativeOp.Multiply <!> "multiply"; pstr "=" >>% AssociativeOp.Equals <!> "equals"] <!> "pAssociativeOp"
+let pNodeValue = choice [pUnaryOp |>> NodeValue.UnaryOp; pBinaryOp |>> NodeValue.BinaryOp; pAssociativeOp |>> NodeValue.AssociativeOp; pTConstant |>> NodeValue.Constant; pTVariable |>> NodeValue.Variable] <!> "pNodeValue"
 
-let pTRegex = 
+let (pTRegex : Parser<TRegex, unit>), pTRegexRef = createParserForwardedToRef()
 
+do pTRegexRef := pipe2
+                    pNodeValue
+                    (opt (many1 (
+                                    tuple2 pTRelation (
+                                                        (between (pstr "(") (pstr ")") pTRegex <!> "fenced tregex") <|> (pTRegex <!> "normal tregex")
+                                                      )
+                                )
+                         )
+                    )
+                    (
+                    fun dominant optionalListOfRelationAndTRegex ->
+                        {
+                            dominant = dominant;
+                            subjects = optionalListOfRelationAndTRegex
+                        }
+                    ) <!> "pTRegex"

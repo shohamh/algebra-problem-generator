@@ -1,6 +1,7 @@
 ﻿// Learn more about F# at http://fsharp.org
 
 open System
+open TRegex
 open AlgebraProblemGenerator
 open Parser
 open FParsec
@@ -41,6 +42,13 @@ let generateSimilarMathMLFromMathML (mathML : string) : string =
         mml
     | None ->
         ""
+let getTermDomains (mathml : string) : string list =
+    match term mathml with
+    | None -> []
+    | Some term ->
+        let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"]
+        let baseExpressions = List.choose id (List.map (test pTRegex) baseExpressionStrings)
+        List.map tregexToString <| collectDomains term baseExpressions
 
 let checkEquality (mathml1: string) (mathml2: string) : bool =
     let term1 = term mathml1
@@ -106,6 +114,7 @@ type CLIArguments =
     | CheckEquality of mathml1:string * mathml2:string
     | GenerateSimilarTerm of mathml:string
     | IsFinalAnswerForm of mathml:string
+    | GetTermDomains of mathml:string
     | Debug
 with
     interface IArgParserTemplate with
@@ -114,6 +123,7 @@ with
             | CheckEquality _ -> "Checks for equality between two mathML strings."
             | GenerateSimilarTerm _ -> "Generates a similar mathML term."
             | IsFinalAnswerForm _ -> "if answer is of the form of 'one variable'='things without that one variable'"
+            | GetTermDomains _ -> "Get the TRegex form patterns in a mathML term."
             | Debug -> "Prints debug messages for parsers."
 
 
@@ -133,10 +143,16 @@ let main argv =
                 printfn "%A" (checkEquality mathml1 mathml2)
             | GenerateSimilarTerm mathml ->
                 printfn "%s" (generateSimilarMathMLFromMathML mathml)
+            | GetTermDomains mathml ->
+                printfn "%A" (getTermDomains mathml)
             | IsFinalAnswerForm mathml ->
                 printfn "%b" (isFinalAnswerForm mathml) 
             parseCommandline xs
     parseCommandline parserResults
+    // let tregex = (Parser.test pTRegex "sqrt < ( / < ( ^ < (2 . x) ) < (x.2)) < 5")
+    // printfn "%A" tregex.Value
+    // printfn "%s" <| tregexToString tregex.Value
+    // printfn "full circle works: %b" (tregex = (Parser.test pTRegex (tregexToString tregex.Value)))
     // printfn "hi"
     // printfn "%A" Parser.tests 
     // printfn "bye"
