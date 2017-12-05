@@ -1,12 +1,10 @@
 ﻿module Parser
 
 open FParsec
+open TRegex
 open AlgebraProblemGenerator
 open Utils
 open System
-open System.Security.Cryptography.X509Certificates
-open Microsoft.Win32.SafeHandles
-open Microsoft.VisualBasic.CompilerServices
 
 let mathmltest = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  <mstyle displaystyle=\"true\">\n    <mi> r </mi>\n  </mstyle>\n</math>"
 
@@ -492,3 +490,46 @@ let parserTests =
 
     // printfn "\n----------------------------\n\n"
     results
+
+
+///////////////////////////////// TREGEX PARSER
+
+// A << B
+//    A dominates B
+// A < B 
+//    A immediately dominates B
+// A $ B 
+//    A is a sister of B (and not equal to B)
+
+// A precedes B if they are both children of the same node and A is leftmost
+
+// A , B 
+//    A precedes B 
+// A . B 
+//    A immediately precedes B
+
+let pTRelation = choice [pstr "<"; pstr "<<"; pstr "$"; pstr ","; pstr "."] |>> (fun str ->
+    match str with
+    | "<" -> Relation.Descendant
+    | "<<" -> Relation.DirectDescendant
+    | "$" -> Relation.Sibling
+    | "," -> Relation.Precedent
+    | "." -> Relation.ImmediatePrecedent
+    )
+
+let pTConstant = choice [pfloat |>> Constant.Real;
+                         sstr "inf" >>% Constant.Infinity;
+                         sstr "ninf" >>% Constant.NegativeInfinity]
+let pTVariable = manyChars anyChar
+
+let pTrig = choice [ pstr "sin" >>% Trig.Sin; pstr "cos" >>% Trig.Cos; pstr "tan" >>% Trig.Tan; pstr "cot" >>% Trig.Cot; pstr "sec" >>% Trig.Sec; pstr "csc" >>% Trig.Csc]
+let pInvTrig = choice [ pstr "asin" >>% InvTrig.Arcsin; pstr "acos" >>% InvTrig.Arccos; pstr "atan" >>% InvTrig.Arctan; pstr "acot" >>% InvTrig.Arccot; pstr "asec" >>% InvTrig.Arcsec; pstr "acsc" >>% InvTrig.Arccsc]
+let pLog = pstr "log" >>. pTConstant |>> UnaryOp.Log
+let pUnaryOp = choice [pstr "-" >>% UnaryOp.Negative; pstr "ln" >>% UnaryOp.NaturalLog; pLog; pstr "sqrt" >>% UnaryOp.Sqrt; pTrig |>> UnaryOp.Trig; pInvTrig |>> UnaryOp.InvTrig]
+
+let pBinaryOp = choice [pstr "/" >>% BinaryOp.Divide; pstr "^" >>% BinaryOp.Exponent]
+let pAssociativeOp = choice [pstr "+" >>% AssociativeOp.Plus; pstr "*" >>% AssociativeOp.Multiply; pstr "=" >>% AssociativeOp.Equals]
+let pNodeValue = choice [pUnaryOp |>> NodeValue.UnaryOp; pBinaryOp |>> NodeValue.BinaryOp; pAssociativeOp |>> NodeValue.AssociativeOp; pTConstant |>> NodeValue.Constant; pTVariable |>> NodeValue.Variable]
+
+let pTRegex = 
+

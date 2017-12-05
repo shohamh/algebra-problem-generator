@@ -4,12 +4,13 @@ open AlgebraProblemGenerator
 open Utils
 open FParsec.CharParsers
 
-type NodeValue=
+type NodeValue =
 | Constant of Constant
 | Variable of Variable
 | UnaryOp of UnaryOp
 | BinaryOp of BinaryOp
 | AssociativeOp of AssociativeOp
+
 
 type Node = {
     parent : Node option;
@@ -87,7 +88,7 @@ let rec tregexToString (tregex:TRegex) : string =
     | None ->
         nodeValueToString tregex.dominant
     | Some subjects ->
-        dominant = nodeValueToString tregex.dominant
+        let dominant = nodeValueToString tregex.dominant
         let perSubject (relation : Relation, texpr : TRegex) =
             [relationToString relation;
             (if texpr.subjects.IsNone || List.isEmpty texpr.subjects.Value then
@@ -95,7 +96,7 @@ let rec tregexToString (tregex:TRegex) : string =
             else
                 "(" + tregexToString texpr + ")")
             ]
-        String.concat " " <| List.collect perSubject subjects
+        String.concat " " <| dominant::List.collect perSubject subjects
 
 let termToNode (root : Term) : Node =
     let rec termToNodeHelper (root:Term) (parent : Node option): Node =
