@@ -2,12 +2,11 @@ module TRegex
 
 open AlgebraProblemGenerator
 open Utils
+open FParsec.CharParsers
 
 type NodeValue=
 | Constant of Constant
 | Variable of Variable
-| Trig of Trig
-| InvTrig of InvTrig
 | UnaryOp of UnaryOp
 | BinaryOp of BinaryOp
 | AssociativeOp of AssociativeOp
@@ -29,6 +28,63 @@ type TRegex = {
     dominant : NodeValue;
     subjects : (Relation * TRegex) list option;
 }
+
+let nodeValueToString (value:NodeValue) : string =
+    match value with
+    | Constant c ->
+        match c with
+        | Infinity -> "inf"
+        | NegativeInfinity -> "ninf"
+        | Real r -> string r 
+    | Variable v-> v
+    | UnaryOp op ->
+        match op with
+        | Negative -> "-"
+        | NaturalLog -> "log"
+        | Log c -> 
+            match c with
+                | Infinity -> "loginf"
+                | NegativeInfinity -> "logninf"
+                | Real r -> String.concat "" ["log";(string r)]
+        | Sqrt -> "sqrt"
+        | Trig t ->
+                match t with
+                | Sin -> "sin"
+                | Cos -> "cos"
+                | Tan -> "tan"
+                | Cot -> "cot"
+                | Sec -> "sec"
+                | Csc -> "csc"
+        | InvTrig t ->
+                match t with
+                | Arcsin -> "arcsin"
+                | Arccos -> "arccos"
+                | Arctan -> "arctan"
+                | Arccot -> "arccot"
+                | Arcsec -> "arcsec"
+                | Arccsc -> "arccsc" 
+    | BinaryOp op ->
+        match op with
+        | Divide -> "/"
+        | Exponent -> "^"
+    | AssociativeOp op ->
+        match op with
+        | Plus -> "+"
+        | Multiply -> "*"
+        | Equals -> "="        
+
+let relationToString (relation:Relation) : string =
+    match relation with
+    | Descendant -> "<<"
+    | DirectDescendant -> "<"
+    | Sibling -> "$"
+    | Precedent -> ","
+    | ImmediatePrecedent -> "."
+
+let rec tregexToString (tregex:TRegex) : string =
+    let mutable res= nodeValueToString tregex.dominant
+    for (relation,exp) in subjects do
+        res <- String.concat " " [res;relationToString relation;"(";tregexToString exp;")"] 
 
 let termToNode (root : Term) : Node =
     let rec termToNodeHelper (root:Term) (parent : Node option): Node =
