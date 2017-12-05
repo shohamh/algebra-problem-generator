@@ -1,5 +1,13 @@
 module Utils
 
+open System.IO
+open System.Reflection
+open System.Runtime.Serialization
+open System.Runtime.Serialization.Formatters.Binary
+open System.Text
+open System.Xml
+open System.Xml.Serialization
+
 let rec insert v i l =
     match i, l with
     | 0, xs -> v::xs
@@ -53,3 +61,18 @@ let containsExactList (list1:'T list) (list2:'T list) : bool =
         else if (list1.Item idx1)=(list2.Item idx2) then containsListInOrderHelper list1 list2 (idx1+1) (idx2+2)
         else containsListInOrderHelper list1 list2 (idx1+1) idx2
     containsListInOrderHelper list1 list2 0 0
+
+let toString = System.Text.Encoding.ASCII.GetString
+    
+let toBytes (x : string) = System.Text.Encoding.ASCII.GetBytes x
+
+let serializeXml<'a> (x : 'a) =
+        let xmlSerializer = XmlSerializer(typeof<'a>)
+        use stream = new MemoryStream()
+        xmlSerializer.Serialize(stream, x)
+        toString <| stream.ToArray()
+
+let deserializeXml<'a> (xml : string) =
+    let xmlSerializer = XmlSerializer(typeof<'a>)
+    use stream = new MemoryStream(toBytes xml)
+    xmlSerializer.Deserialize stream :?> 'a

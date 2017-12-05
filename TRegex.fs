@@ -2,7 +2,6 @@ module TRegex
 
 open AlgebraProblemGenerator
 open Utils
-open System.Collections.Generic
 
 type NodeValue=
 | Constant of Constant
@@ -31,22 +30,24 @@ type TRegex = {
     subjects : (Relation * TRegex) list option;
 }
 
-let rec term2Node (root:Term) (parent : Node option): Node =
-    match root with
-    | TConstant constant ->  {parent=parent;children=[];value=Constant constant} 
-    | TVariable variable -> {parent=parent;children=[];value=Variable variable}
-    | UnaryTerm (op,term)->
-        let res = {parent=parent;children=[];value=UnaryOp op}
-        res.children <- [term2Node term (Some res)]
-        res
-    | BinaryTerm (term1,op,term2) -> 
-        let res = {parent=parent;children=[];value=BinaryOp op}
-        res.children <- [term2Node term1 (Some res);term2Node term2 (Some res)]
-        res
-    | AssociativeTerm (op,terms) ->
-        let res = {parent=parent;children=[];value=AssociativeOp op}
-        res.children <- List.map (fun term-> term2Node term parent) terms
-        res
+let termToNode (root : Term) : Node =
+    let rec termToNodeHelper (root:Term) (parent : Node option): Node =
+        match root with
+        | TConstant constant ->  {parent=parent;children=[];value=Constant constant} 
+        | TVariable variable -> {parent=parent;children=[];value=Variable variable}
+        | UnaryTerm (op,term)->
+            let res = {parent=parent;children=[];value=UnaryOp op}
+            res.children <- [termToNodeHelper term (Some res)]
+            res
+        | BinaryTerm (term1,op,term2) -> 
+            let res = {parent=parent;children=[];value=BinaryOp op}
+            res.children <- [termToNodeHelper term1 (Some res);termToNodeHelper term2 (Some res)]
+            res
+        | AssociativeTerm (op,terms) ->
+            let res = {parent=parent;children=[];value=AssociativeOp op}
+            res.children <- List.map (fun term-> termToNodeHelper term parent) terms
+            res
+    termToNodeHelper root None
 
 let rec find (root:Node) (target:NodeValue) : Node list =
     let res=List.collect (fun child -> find child target) root.children
@@ -111,21 +112,38 @@ let rec checkRegex (root:Node) (exp:TRegex) : Node list =
                 match relation with
                 | Descendant ->
                     checkDescendant
+                | DirectDescendant ->
+                    checkDirectDescendant       
             let isGoodCandidateFunction =
                 match relation with
                 | Descendant ->
                     checkDescendantReal    
-
-            let candidates = checkRegex root sexp
-            
+                | DirectDescendant ->
+                    checkDescendantReal    
+            let candidates = checkRegex root sexp            
             let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
-
             List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
         List.ofSeq (Set.intersectMany <| List.map (checkPerSubject >> set) subjects)
     | None ->
         find root exp.dominant
 
-             
-             
+let rec collectDomains (term:Term) (exp: TRegex) (baseExpressions: TRegex list) : TRegex list = 
+    let tree = termToNode term
+    let matches = checkRegex tree exp
+    match matches with
+    | [] -> []
+    | _ ->
+        let perExpression (expression: TRegex) =
+            let tregex = {
+                dominant = exp.dominant;
+                subjects =  
+                    match exp.subjects with
+                    | Some listOfSubjects ->
+                        Some (List.append listOfSubjects [(Relation.Descendant, expression)])
+                    | None ->
+                        Some [(Relation.Descendant, expression)]
+            }
+            collectDomains term tregex baseExpressions
+        List.collect perExpression baseExpressions
 
 
