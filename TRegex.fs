@@ -3,6 +3,7 @@ module TRegex
 open AlgebraProblemGenerator
 open Utils
 open FParsec.CharParsers
+open NUnit.Framework
 
 type NodeValue =
 | Constant of Constant
@@ -113,7 +114,7 @@ let termToNode (root : Term) : Node =
             res
         | AssociativeTerm (op,terms) ->
             let res = {parent=parent;children=[];value=AssociativeOp op}
-            res.children <- List.map (fun term-> termToNodeHelper term parent) terms
+            res.children <- List.map (fun term-> termToNodeHelper term (Some res)) terms
             res
     termToNodeHelper root None
 
@@ -130,7 +131,7 @@ let rec getAll (root:Node) : Node list =
 
 let checkDescendant (root:Node) (ancestor:NodeValue) (descendant:NodeValue) : Node list = 
     let ancestors = find root ancestor
-    List.collect (fun ancestorRoot -> List.collect (fun x-> if x.parent.IsSome then [x.parent.Value] else []) (find ancestorRoot descendant)) ancestors
+    List.collect (fun ancestorRoot -> List.collect (fun x-> if x.parent.IsSome then [x.parent.Value] else []) (find ancestorRoot descendant)) (List.collect (fun x -> x.children) ancestors)
          
 let checkDirectDescendant (root:Node) (parent:NodeValue) (child:NodeValue) : Node list = 
     let parents= find root parent
@@ -149,8 +150,12 @@ let checkImmediatePrecedent (root:Node)  (siblings:NodeValue list): Node list li
     List.filter (fun x-> containsExactList (List.map (fun y-> y.value) x) siblings) childrenOfNodes
 
 let rec checkDescendantReal (ancestor:Node) (descendant:Node) : bool=
-    if ancestor=descendant then true
-    else List.exists (checkDescendantReal descendant) ancestor.children
+    //printfn "ancestor______________________________________________________________\n%A" ancestor 
+    //printfn "descendant________________________________________________________________\n%A" descendant
+
+    if System.Object.ReferenceEquals(ancestor, descendant) then true
+    else if List.isEmpty ancestor.children then false
+    else List.exists (fun x-> checkDescendantReal x descendant) ancestor.children
 
 let checkDirectDescendantReal (parent:Node) (descendant:Node) : bool =
     List.contains descendant parent.children
@@ -195,7 +200,9 @@ let rec checkRegex (root:Node) (exp:TRegex) : Node list =
             | [] -> []
             | _ ->
                 let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
-                List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
+                let teststr=List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
+                printfn "here"
+                teststr
         List.ofSeq (Set.intersectMany <| List.map (checkPerSubject >> set) subjects)
     | None ->
         find root exp.dominant
@@ -216,7 +223,9 @@ let collectDomains (term : Term) (baseExpressions: TRegex list) : TRegex list =
                     subjects =  
                         match exp.subjects with
                         | Some listOfSubjects ->
-                            Some (List.append listOfSubjects [(Relation.Descendant, expression)])
+                            //Some (List.append listOfSubjects [(Relation.Descendant, expression)])
+                            //Some [{dominant=(List.item 0 listOfSubjects).dominant;subjects=List.append (List.item 0 listOfSubjects).subjects [(Relation.Descendant, expression)]}]
+                            
                         | None ->
                             Some [(Relation.Descendant, expression)]
                 }

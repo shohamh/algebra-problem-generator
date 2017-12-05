@@ -46,6 +46,7 @@ let getTermDomains (mathml : string) : string list =
     match term mathml with
     | None -> []
     | Some term ->
+        printfn "%A" term
         let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"]
         let baseExpressions = List.choose id (List.map (test pTRegex) baseExpressionStrings)
         List.map tregexToString <| collectDomains term baseExpressions
