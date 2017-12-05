@@ -82,9 +82,20 @@ let relationToString (relation:Relation) : string =
     | ImmediatePrecedent -> "."
 
 let rec tregexToString (tregex:TRegex) : string =
-    let mutable res= nodeValueToString tregex.dominant
-    for (relation,exp) in subjects do
-        res <- String.concat " " [res;relationToString relation;"(";tregexToString exp;")"] 
+    let mutable res = nodeValueToString tregex.dominant
+    match tregex.subjects with
+    | None ->
+        nodeValueToString tregex.dominant
+    | Some subjects ->
+        dominant = nodeValueToString tregex.dominant
+        let perSubject (relation : Relation, texpr : TRegex) =
+            [relationToString relation;
+            (if texpr.subjects.IsNone || List.isEmpty texpr.subjects.Value then
+                tregexToString texpr
+            else
+                "(" + tregexToString texpr + ")")
+            ]
+        String.concat " " <| List.collect perSubject subjects
 
 let termToNode (root : Term) : Node =
     let rec termToNodeHelper (root:Term) (parent : Node option): Node =
