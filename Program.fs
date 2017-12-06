@@ -43,7 +43,7 @@ let getTermDomains (mathml : string) : string list =
     | None -> []
     | Some term ->
         // printfn "%A" term
-        let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"; "e"]
+        let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"; "e"; "pi"]
         let baseExpressions = List.choose id (List.map (test pTRegex) baseExpressionStrings)
         List.map tregexToString <| collectDomains term baseExpressions
 
@@ -141,7 +141,7 @@ let main argv =
             | GenerateSimilarTerm mathml ->
                 printfn "%s" (generateSimilarMathMLFromMathML mathml)
             | GetTermDomains mathml ->
-                printfn "%A" (getTermDomains mathml)
+                List.map (printfn ";%s") (getTermDomains mathml) |> ignore
             | IsFinalAnswerForm mathml ->
                 printfn "%b" (isFinalAnswerForm mathml) 
             parseCommandline xs

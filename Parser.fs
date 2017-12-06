@@ -251,7 +251,9 @@ let rec mtagToTerm (mtag : Mtag) : Term =
     | Identifier str ->
         match str.Trim() with
         | "sin" -> UnaryTerm (Trig Sin, TVariable "str")
+        | "cos" -> UnaryTerm (Trig Sin, TVariable "str")
         | "&#x03C0; <!-- greek small letter pi -->" -> TConstant (Constant.Real Math.PI)
+        | "e" -> TConstant (Constant.Real Math.E)
         | _ -> Term.TVariable str
     | Operator op ->
         printfn "shouldn't happen, operator str"
