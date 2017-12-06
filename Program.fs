@@ -1,12 +1,8 @@
 ﻿// Learn more about F# at http://fsharp.org
 
-open System
 open TRegex
 open AlgebraProblemGenerator
 open Parser
-open FParsec
-open QueryBuilder
-open QueryExecutor
 open Utils
 open Argu
 
@@ -46,8 +42,8 @@ let getTermDomains (mathml : string) : string list =
     match term mathml with
     | None -> []
     | Some term ->
-        printfn "%A" term
-        let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"]
+        // printfn "%A" term
+        let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"; "e"]
         let baseExpressions = List.choose id (List.map (test pTRegex) baseExpressionStrings)
         List.map tregexToString <| collectDomains term baseExpressions
 

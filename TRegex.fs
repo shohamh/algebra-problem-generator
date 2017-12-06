@@ -2,8 +2,7 @@ module TRegex
 
 open AlgebraProblemGenerator
 open Utils
-open FParsec.CharParsers
-open NUnit.Framework
+
 
 type NodeValue =
 | Constant of Constant
@@ -12,12 +11,26 @@ type NodeValue =
 | BinaryOp of BinaryOp
 | AssociativeOp of AssociativeOp
 
-
-type Node = {
-    parent : Node option;
-    mutable children : Node list;
-    value : NodeValue;
-}
+[<CustomEquality; CustomComparison>]
+type Node =
+    {
+        parent : Node option;
+        mutable children : Node list;
+        value : NodeValue;
+    }
+    override x.Equals(yobj) =
+        match yobj with
+        | :? Node as y -> (x.value = y.value && x.children = y.children && System.Object.ReferenceEquals(x.parent, y.parent))
+        | _ -> false
+    override x.GetHashCode() = 31 * hash x.children + 37 * hash x.value    
+    interface System.IComparable with
+      member x.CompareTo yobj =
+          match yobj with
+          | :? Node as y -> 
+            if x.children = y.children && x.value = y.value then
+                0
+            else 1
+          | _ -> invalidArg "yobj" "cannot compare values of different types"
 
 type Relation =
 | Descendant
@@ -37,7 +50,13 @@ let nodeValueToString (value:NodeValue) : string =
         match c with
         | Infinity -> "inf"
         | NegativeInfinity -> "ninf"
-        | Real r -> string r 
+        | Real r ->
+            if r = System.Math.PI then
+                string "pi"
+            elif r = System.Math.E then
+                string "e"
+            else
+                string r 
     | Variable v-> v
     | UnaryOp op ->
         match op with
@@ -137,23 +156,47 @@ let checkDirectDescendant (root:Node) (parent:NodeValue) (child:NodeValue) : Nod
     let parents= find root parent
     List.filter (fun parent -> List.exists (fun x-> x.value = child) parent.children) parents
 
-let checkSibling (root:Node) (siblings:NodeValue list) : Node list list = 
+// let checkSibling (root:Node) (siblings:NodeValue list) : Node list list = 
+//     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
+//     List.filter (fun x-> containsList (List.map (fun y-> y.value) x) siblings) childrenOfNodes 
+let checkSibling (root:Node) (node1:NodeValue) (node2: NodeValue) : (Node * Node) list = 
     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
-    List.filter (fun x-> containsList (List.map (fun y-> y.value) x) siblings) childrenOfNodes 
+    let filter = List.filter (fun x -> containsList (List.map (fun y-> y.value) x) [node1; node2]) childrenOfNodes
+    if List.isEmpty filter then
+        []
+    else
+        List.map (fun siblings -> (List.find (fun x -> x.value = node1) siblings, List.find (fun x -> x.value = node2) siblings)) filter
 
-let checkPrecedent (root:Node) (siblings:NodeValue list) : Node list list = 
-    let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
-    List.filter (fun x-> containsListInOrder (List.map (fun y-> y.value) x) siblings) childrenOfNodes
 
-let checkImmediatePrecedent (root:Node)  (siblings:NodeValue list): Node list list = 
+// let checkPrecedent (root:Node) (siblings:NodeValue list) : Node list list = 
+//     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
+//     List.filter (fun x-> containsListInOrder (List.map (fun y-> y.value) x) siblings) childrenOfNodes
+
+let checkPrecedent (root:Node) (node1:NodeValue) (node2: NodeValue) : (Node * Node) list = 
     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
-    List.filter (fun x-> containsExactList (List.map (fun y-> y.value) x) siblings) childrenOfNodes
+    let filter = List.filter (fun x -> containsListInOrder (List.map (fun y-> y.value) x) [node1; node2]) childrenOfNodes
+    if List.isEmpty filter then
+        []
+    else
+        List.map (fun siblings -> (List.find (fun x -> x.value = node1) siblings, List.find (fun x -> x.value = node2) siblings)) filter
+
+let checkImmediatePrecedent (root:Node) (node1:NodeValue) (node2: NodeValue) : (Node * Node) list = 
+    let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
+    let filter = List.filter (fun x -> containsExactList (List.map (fun y-> y.value) x) [node1; node2]) childrenOfNodes
+    if List.isEmpty filter then
+        []
+    else
+        List.map (fun siblings -> (List.find (fun x -> x.value = node1) siblings, List.find (fun x -> x.value = node2) siblings)) filter
+
+// let checkImmediatePrecedent (root:Node)  (siblings:NodeValue list): Node list list = 
+//     let childrenOfNodes=List.map (fun x-> x.children) (getAll root)
+//     List.filter (fun x-> containsExactList (List.map (fun y-> y.value) x) siblings) childrenOfNodes
 
 let rec checkDescendantReal (ancestor:Node) (descendant:Node) : bool=
     //printfn "ancestor______________________________________________________________\n%A" ancestor 
     //printfn "descendant________________________________________________________________\n%A" descendant
 
-    if System.Object.ReferenceEquals(ancestor, descendant) then true
+    if ancestor = descendant then true
     else if List.isEmpty ancestor.children then false
     else List.exists (fun x-> checkDescendantReal x descendant) ancestor.children
 
@@ -181,54 +224,128 @@ let rec checkRegex (root:Node) (exp:TRegex) : Node list =
     match exp.subjects with
     | Some subjects ->
         let checkPerSubject (relation, sexp) : Node list =
-            let isGoodDominantsFunction =
-                match relation with
-                | Descendant -> checkDescendant
-                | DirectDescendant -> checkDirectDescendant   
-                // | Sibling -> checkSibling 
-                // | Precedent -> checkPrecedent
-                // | ImmediatePrecedent -> checkImmediatePrecedent
-            let isGoodCandidateFunction =
-                match relation with
-                | Descendant -> checkDescendantReal    
-                | DirectDescendant -> checkDirectDescendantReal
-                | Sibling -> checkSiblingReal
-                | Precedent -> checkPrecedentReal
-                | ImmediatePrecedent -> checkImmediatePrecedentReal
             let candidates = checkRegex root sexp            
             match candidates with
             | [] -> []
             | _ ->
-                let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
-                let teststr=List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
-                printfn "here"
-                teststr
+                match relation with
+                | Descendant | DirectDescendant ->
+                    let isGoodDominantsFunction =
+                        match relation with
+                        | Descendant -> checkDescendant
+                        | DirectDescendant -> checkDirectDescendant   
+                    let isGoodCandidateFunction =
+                        match relation with
+                        | Descendant -> checkDescendantReal    
+                        | DirectDescendant -> checkDirectDescendantReal
+                    let possibleDominantsOfCandidate = isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
+                    List.filter (fun dominant -> List.contains true <| List.map (isGoodCandidateFunction dominant) candidates) possibleDominantsOfCandidate
+                | Sibling | Precedent | ImmediatePrecedent ->
+                    let isGoodDominantsFunction =
+                        match relation with
+                        | Sibling -> checkSibling
+                        | Precedent -> checkPrecedent
+                        | ImmediatePrecedent -> checkImmediatePrecedent
+                    let isGoodCandidateFunction =
+                        match relation with
+                        | Sibling -> checkSiblingReal
+                        | Precedent -> checkPrecedentReal
+                        | ImmediatePrecedent -> checkImmediatePrecedentReal
+                    let possibleDominantsOfCandidate = List.map fst <| isGoodDominantsFunction root exp.dominant (List.item 0 candidates).value
+                    List.filter (fun dom -> (List.contains true <| List.map (fun cand -> isGoodCandidateFunction dom cand) candidates)) possibleDominantsOfCandidate
+                // printfn "we have candidates, after filter"
         List.ofSeq (Set.intersectMany <| List.map (checkPerSubject >> set) subjects)
     | None ->
         find root exp.dominant
 
+type IndexPath = int list
+let getTRegexThroughPath (tregex: TRegex) (indexPath : IndexPath) (map : TRegex -> TRegex) : TRegex option =
+    let rec helper tregex indexPath : TRegex option =
+        match indexPath with
+        | [] ->
+            Some (map tregex)
+        | index::xs ->
+            Some {
+                dominant = tregex.dominant;
+                subjects = 
+                    match tregex.subjects with
+                    | None ->
+                        None
+                    | Some subjectList ->
+                        let (relation, treg) = List.item index subjectList
+                        let optionItem = helper treg xs
+                        match optionItem with
+                        | None ->
+                            // TODO: CHECK
+                            Some subjectList
+                        | Some item ->
+                            Some <| List.concat [List.take index subjectList; [(relation, item)]; List.skip (index + 1) subjectList]
+            }
+    helper tregex indexPath
+
+// returns different versions of root, all with the deepest elements changed to have "expression" added to their subjects
+let addToDeepestElements (root: TRegex) (expression: TRegex): TRegex list =
+    let rec deepestElementsHelper (root:TRegex) (depth : int) (pathSoFar : IndexPath) : int * IndexPath list =
+        match root.subjects with
+        | None ->
+            (depth, [pathSoFar])
+        | Some subjectList ->
+            let results = List.mapi (fun index (relation, subject) -> deepestElementsHelper subject (depth + 1) (List.append pathSoFar [index])) subjectList
+            let maxDepth = List.max <| List.map fst results
+            let rec f (results : (int * IndexPath list) list) : IndexPath list =
+                match results with
+                | [] -> []
+                | (depth, items)::xs ->
+                    if depth = maxDepth then
+                        List.append items (f xs)
+                    else
+                        f xs
+            (depth, f results)
+
+    let addExpressionToTRegex tregex =
+        {
+            dominant = tregex.dominant;
+            subjects =  
+                match tregex.subjects with
+                | Some listOfSubjects ->
+                    let (relation, firstTregex) = List.item 0 listOfSubjects
+                    let updatedFirst =
+                        match firstTregex.subjects with
+                        | None ->
+                            {
+                                dominant = firstTregex.dominant;
+                                subjects = Some [(Relation.Descendant, expression)]
+                            }
+                        | Some firstSubjects ->
+                            {
+                                dominant = firstTregex.dominant;
+                                subjects = Some <| List.append firstSubjects [(Relation.Descendant, expression)]
+                            }
+                    Some ((relation, updatedFirst)::(List.skip 1 listOfSubjects))
+                | None ->
+                    Some [(Relation.Descendant, expression)]
+        }
+    let indexPaths = snd (deepestElementsHelper root 0 [])
+    if List.isEmpty indexPaths || List.length indexPaths = 1 && List.isEmpty (List.head indexPaths) then
+        [addExpressionToTRegex root]
+    else
+        List.choose id <| List.map (fun indexPath -> getTRegexThroughPath root indexPath addExpressionToTRegex) indexPaths
+    
+
+
 let collectDomains (term : Term) (baseExpressions: TRegex list) : TRegex list =
     let rec collectDomainsHelper (term:Term) (exp: TRegex) (baseExpressions: TRegex list) : TRegex list = 
-        printfn "checkRegex: %A" exp
+        // printfn "collectDomains: %A" exp
         let tree = termToNode term
         let matches = checkRegex tree exp
         match matches with
         | [] ->
-            printfn "%b" false 
+            // printfn "   no matches for checkRegex" 
             []
         | _ ->
-            let perExpression (expression: TRegex) =
-                let tregex = {
-                    dominant = exp.dominant;
-                    subjects =  
-                        match exp.subjects with
-                        | Some listOfSubjects ->
-                            //Some (List.append listOfSubjects [(Relation.Descendant, expression)])
-                            //Some [{dominant=(List.item 0 listOfSubjects).dominant;subjects=List.append (List.item 0 listOfSubjects).subjects [(Relation.Descendant, expression)]}]
-                            
-                        | None ->
-                            Some [(Relation.Descendant, expression)]
-                }
-                collectDomainsHelper term tregex baseExpressions
-            List.collect perExpression baseExpressions
+            // printfn "   matches for checkRegex"
+            let perExpression (expression: TRegex) : TRegex list =
+                let variations = addToDeepestElements exp expression
+                List.collect (fun variation -> collectDomainsHelper term variation baseExpressions) variations
+            exp::List.collect perExpression baseExpressions
     List.collect (fun baseExpression -> collectDomainsHelper term baseExpression baseExpressions) baseExpressions

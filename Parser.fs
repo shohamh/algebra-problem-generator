@@ -513,6 +513,8 @@ let pTRelation = choice [attempt <| pstr "#" >>% Relation.Descendant <!> "#";
 
 
 let pTConstant = choice [pfloat |>> Constant.Real;
+                         sstr "e" >>% Constant.Real System.Math.E;
+                         sstr "pi" >>% Constant.Real System.Math.PI;
                          sstr "inf" >>% Constant.Infinity;
                          sstr "ninf" >>% Constant.NegativeInfinity] <!> "pTConstant"
 let pTVariable = identifier (IdentifierOptions (normalizeBeforeValidation = true))  <!> "pTVariable"
