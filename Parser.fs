@@ -321,6 +321,8 @@ let termToMtag (term : Term) =
             match bop with
             | BinaryOp.Exponent -> 
                 Sup (termToMtagRec t1, termToMtagRec t2)
+            | BinaryOp.Divide ->
+                Fraction (termToMtagRec t1, termToMtagRec t2)
         | AssociativeTerm (aop, termList) ->
             match aop with
             | AssociativeOp.Plus ->
