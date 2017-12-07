@@ -530,7 +530,8 @@ let pUnaryOp = choice [pstr "-" >>% UnaryOp.Negative <!> "negative"; pstr "ln" >
 
 let pBinaryOp = choice [pstr "/" >>% BinaryOp.Divide <!> "divide"; pstr "^" >>% BinaryOp.Exponent <!> "exponent"] <!> "pBinaryOp"
 let pAssociativeOp = choice [pstr "+" >>% AssociativeOp.Plus <!> "plus"; pstr "*" >>% AssociativeOp.Multiply <!> "multiply"; pstr "=" >>% AssociativeOp.Equals <!> "equals"] <!> "pAssociativeOp"
-let pNodeValue = choice [pUnaryOp |>> NodeValue.UnaryOp; pBinaryOp |>> NodeValue.BinaryOp; pAssociativeOp |>> NodeValue.AssociativeOp; pTConstant |>> NodeValue.Constant; pTVariable |>> NodeValue.Variable] <!> "pNodeValue"
+let pFenced = pstr "[]"
+let pNodeValue = choice [pUnaryOp |>> NodeValue.UnaryOp; pFenced >>% NodeValue.Fenced; pBinaryOp |>> NodeValue.BinaryOp; pAssociativeOp |>> NodeValue.AssociativeOp; pTConstant |>> NodeValue.Constant; pTVariable |>> NodeValue.Variable] <!> "pNodeValue"
 
 let (pTRegex : Parser<TRegex, unit>), pTRegexRef = createParserForwardedToRef()
 

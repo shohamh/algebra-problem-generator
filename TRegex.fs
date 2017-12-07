@@ -10,6 +10,7 @@ type NodeValue =
 | UnaryOp of UnaryOp
 | BinaryOp of BinaryOp
 | AssociativeOp of AssociativeOp
+| Fenced
 
 [<CustomEquality; CustomComparison>]
 type Node =
@@ -58,6 +59,7 @@ let nodeValueToString (value:NodeValue) : string =
             else
                 string r 
     | Variable v-> v
+    | Fenced -> "[]"
     | UnaryOp op ->
         match op with
         | Negative -> "-"
@@ -123,6 +125,10 @@ let termToNode (root : Term) : Node =
         match root with
         | TConstant constant ->  {parent=parent;children=[];value=Constant constant} 
         | TVariable variable -> {parent=parent;children=[];value=Variable variable}
+        | TFenced term -> 
+            let res = { parent=parent; children=[]; value=Fenced}
+            res.children <- [termToNodeHelper term (Some res)]
+            res
         | UnaryTerm (op,term)->
             let res = {parent=parent;children=[];value=UnaryOp op}
             res.children <- [termToNodeHelper term (Some res)]
