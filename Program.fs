@@ -43,7 +43,7 @@ let getTermDomains (mathml : string) : string list =
     | None -> []
     | Some term ->
         // printfn "%A" term
-        let baseExpressionStrings = ["sqrt"; "/"; "+"; "*"; "-"; "e"; "pi"]
+        let baseExpressionStrings = ["/"; "^"; "e"; "pi"; "inf"; "ninf"; "[]"; "log"; "loginf"; "logninf"; "sqrt"; "sin"; "cos"; "tan"; "cot"; "sec"; "csc"; "arcsin"; "arccos"; "arctan"; "arccot"; "arcsec"; "arccsc"; "^ < e . x";]
         let baseExpressions = List.choose id (List.map (test pTRegex) baseExpressionStrings)
         List.map tregexToString <| collectDomains term baseExpressions
 
