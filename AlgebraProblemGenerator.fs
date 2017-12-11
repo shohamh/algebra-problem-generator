@@ -202,6 +202,7 @@ type QTerm =
 //| QMatrix of (QTerm * int * int) list // list of terms with index pair TODO: better representation of matrix
 //| QDeterminant of QTerm // Determinant of a Matrix TODO: better representation? can we give it a Matrix term?
 | QChoice of QTerm list
+| QTFenced of QTerm // Parentheses
 
 type QProblem  = QTerm * QTerm  * VariableDomain list
 

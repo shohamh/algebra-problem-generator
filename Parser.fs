@@ -242,7 +242,8 @@ let rec mtagToTerm (mtag : Mtag) : Term =
                                         Term.UnaryTerm (func, mtagToTerm <| List.item index mtagList)
                                     | None ->
                                         //printfn "no such function: %A" (List.item (index - 1) mtagList)
-                                        mtagToTerm <| List.item (index - 1) mtagList
+                                        //let item = mtagToTerm <| List.item (index - 1) mtagList
+                                        mtagToTerm (Mtag.Row <| intersperse (Operator Multiply) mtagList)
 
                                 firstTerm // TODO: TODOTOTDOTODTODTO see discord for problems with this shit (recursivity and wrongness)
                             | _ ->

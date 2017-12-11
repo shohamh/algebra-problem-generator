@@ -79,3 +79,4 @@ let rec executeTerm (qterm : QTerm) =
     //| QDeterminant(tmpQTerm) ->
     //executeTerm(tmpQTerm)
     | QChoice(listTerms) -> List.item (rand.Next (0, List.length listTerms)) listTerms |> executeTerm
+    | QTFenced qt -> TFenced (executeTerm qt)

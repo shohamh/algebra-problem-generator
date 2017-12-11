@@ -61,5 +61,5 @@ let rec build (root:Term) (constraints:Constraint list) : QTerm =
     | Ncr (term1, term2)->
         QNcr (build term1 [Free], build term2 [Free])
     | TFenced t ->
-        build t [Free]
+        QTFenced (build t [Free])
         
